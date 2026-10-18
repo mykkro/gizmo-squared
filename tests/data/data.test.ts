@@ -88,3 +88,22 @@ describe('buildings', () => {
     }
   });
 });
+
+describe('building styles', () => {
+  it('houses have a roof and wall material; open structures have neither', () => {
+    for (const b of BUILDINGS) {
+      if (b.kind === 'house') {
+        expect(b.roof, b.name).toBeDefined();
+        expect(b.wall, b.name).toBeDefined();
+      } else {
+        expect(b.roof, b.name).toBeUndefined();
+        expect(b.wall, b.name).toBeUndefined();
+      }
+    }
+    expect(
+      BUILDINGS.filter((b) => b.kind === 'open')
+        .map((b) => b.name)
+        .sort(),
+    ).toEqual(['shrine', 'temple']);
+  });
+});

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CHUNK_SIZE } from '../../src/config';
 import { NO_BLOCK, blockById } from '../../src/data/blocks';
+import { BUILDINGS } from '../../src/data/buildings';
 import { NO_ITEM } from '../../src/data/items';
 import { localIndex, tileToChunk, tileToLocal } from '../../src/world/chunk';
 import { WorldGenerator } from '../../src/world/generator';
@@ -126,5 +127,33 @@ describe('WorldGenerator', () => {
     }
     expect(items / tiles).toBeGreaterThan(0.002);
     expect(items / tiles).toBeLessThan(0.08);
+  });
+});
+
+describe('placed buildings', () => {
+  it('are recorded fully inside the chunk, with solid house footprints', () => {
+    const g = new WorldGenerator(SEED);
+    let houses = 0;
+    for (let cy = -6; cy < 6; cy++) {
+      for (let cx = -6; cx < 6; cx++) {
+        const c = g.generateChunk(cx, cy);
+        for (const b of c.buildings) {
+          const def = BUILDINGS[b.index];
+          const w = def.blueprint[0].length;
+          const h = def.blueprint.length;
+          expect(b.ox + w).toBeLessThanOrEqual(CHUNK_SIZE);
+          expect(b.oy + h).toBeLessThanOrEqual(CHUNK_SIZE);
+          if (def.kind !== 'house') continue;
+          houses++;
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              expect(c.solid[localIndex(b.ox + x, b.oy + y)]).toBe(1);
+              expect(c.item[localIndex(b.ox + x, b.oy + y)]).toBe(NO_ITEM);
+            }
+          }
+        }
+      }
+    }
+    expect(houses).toBeGreaterThan(0);
   });
 });

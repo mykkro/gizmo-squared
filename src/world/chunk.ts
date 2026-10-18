@@ -1,5 +1,12 @@
 import { CHUNK_SIZE } from '../config';
 
+/** A building stamped into a chunk: BUILDINGS index and top-left local tile. */
+export interface PlacedBuilding {
+  index: number;
+  ox: number;
+  oy: number;
+}
+
 export interface ChunkData {
   readonly cx: number;
   readonly cy: number;
@@ -11,8 +18,9 @@ export interface ChunkData {
   readonly item: Uint8Array;
   /** Block id (NO_BLOCK = 0). */
   readonly block: Uint8Array;
-  /** 1 when impassable (solid terrain or a block). */
+  /** 1 when impassable (solid terrain, a block or a house). */
   readonly solid: Uint8Array;
+  readonly buildings: PlacedBuilding[];
 }
 
 const AREA = CHUNK_SIZE * CHUNK_SIZE;
@@ -26,6 +34,7 @@ export function createChunkData(cx: number, cy: number): ChunkData {
     item: new Uint8Array(AREA),
     block: new Uint8Array(AREA),
     solid: new Uint8Array(AREA),
+    buildings: [],
   };
 }
 

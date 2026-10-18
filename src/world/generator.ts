@@ -148,7 +148,8 @@ export class WorldGenerator {
   ): boolean {
     for (let y = 0; y < b.blueprint.length; y++) {
       for (let x = 0; x < b.blueprint[y].length; x++) {
-        if (b.blueprint[y][x] === ' ') continue;
+        // Houses occupy their whole bounding box; open structures only their blueprint.
+        if (b.kind === 'open' && b.blueprint[y][x] === ' ') continue;
         const i = localIndex(ox + x, oy + y);
         if (stamped[i] || this.isTerrainSolid(chunk.terrain[i])) return false;
       }
@@ -157,6 +158,20 @@ export class WorldGenerator {
   }
 
   private stamp(chunk: ChunkData, b: BuildingDef, ox: number, oy: number, stamped: Uint8Array) {
+    chunk.buildings.push({ index: BUILDINGS.indexOf(b), ox, oy });
+    if (b.kind === 'house') {
+      // A roofed house: the whole footprint is solid and drawn by the building painter.
+      for (let y = 0; y < b.blueprint.length; y++) {
+        for (let x = 0; x < b.blueprint[y].length; x++) {
+          const i = localIndex(ox + x, oy + y);
+          stamped[i] = 1;
+          chunk.item[i] = NO_ITEM;
+          chunk.block[i] = NO_BLOCK;
+          chunk.solid[i] = 1;
+        }
+      }
+      return;
+    }
     for (let y = 0; y < b.blueprint.length; y++) {
       for (let x = 0; x < b.blueprint[y].length; x++) {
         const ch = b.blueprint[y][x];
