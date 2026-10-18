@@ -1,6 +1,7 @@
 import { CHUNK_PX, CHUNK_SIZE, TILE_PX } from '../config';
 import { NO_BLOCK } from '../data/blocks';
 import { localIndex, type ChunkData } from '../world/chunk';
+import { paintBuilding } from './buildingPainter';
 import { paintBlock } from './objects';
 import { fillTerrainRect, type TerrainLookup } from './terrainSurface';
 
@@ -41,6 +42,7 @@ export function fillChunkPixels(
       if (id !== NO_BLOCK) paintBlock(id, out, lx * TILE_PX, ly * TILE_PX);
     }
   }
+  for (const b of chunk.buildings) paintBuilding(b, out);
 }
 
 export function createCanvas(w: number, h: number): CanvasLike {

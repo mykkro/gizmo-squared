@@ -1,6 +1,7 @@
 import { CHUNK_PX, TILE_PX } from '../config';
 import { blockById, type BlockKey } from '../data/blocks';
 import { parseHex, shade, type RGB } from './color';
+import { materialTexel } from './materials';
 import { rasterize, type RasterImage, type Shape, type SpriteDef } from './sprites';
 
 const inEllipse = (x: number, y: number, cx: number, cy: number, rx: number, ry: number) =>
@@ -99,6 +100,19 @@ function brick(color: string): SpriteDef {
   };
 }
 
+/** Gives building blocks a stone-masonry surface (luminance of the stone material). */
+function masonry(img: RasterImage): void {
+  for (let y = 0; y < img.height; y++) {
+    for (let x = 0; x < img.width; x++) {
+      const o = (y * img.width + x) * 4;
+      if (img.data[o + 3] === 0) continue;
+      const [r, g, b] = materialTexel('stone', x, y);
+      const f = (r * 0.3 + g * 0.59 + b * 0.11) / 135;
+      for (let c = 0; c < 3; c++) img.data[o + c] = img.data[o + c] * f;
+    }
+  }
+}
+
 const SPECIAL: Partial<Record<BlockKey, SpriteDef>> = { tree, boulder, cactus };
 const images = new Map<number, RasterImage>();
 
@@ -107,7 +121,9 @@ function blockImage(id: number): RasterImage | null {
   if (!b) return null;
   let img = images.get(id);
   if (!img) {
-    img = rasterize(SPECIAL[b.key] ?? brick(b.color), TILE_PX / 32);
+    const special = SPECIAL[b.key];
+    img = rasterize(special ?? brick(b.color), TILE_PX / 32);
+    if (!special) masonry(img);
     images.set(id, img);
   }
   return img;

@@ -187,7 +187,7 @@ function sample(r: Recipe, stops: RGB[], seed: number, px: number, py: number): 
       break;
     case 'streaks':
       // Fast variation across x, slow along y: blades / streaks.
-      v = contrast(0.4 * fbm(x, y, s, 4, seed) + 0.6 * valueNoise(x, y, s * 16, s * 2, seed + 7));
+      v = contrast(0.65 * fbm(x, y, s, 4, seed) + 0.35 * valueNoise(x, y, s * 16, s * 5, seed + 7));
       break;
     case 'ripples': {
       const warp = 0.35 * fbm(x, y, 4, 3, seed + 3);
@@ -212,7 +212,7 @@ function sample(r: Recipe, stops: RGB[], seed: number, px: number, py: number): 
       const edge = cell.f2 - cell.f1;
       if (edge < 0.08) {
         if (has('glow')) glow = 1 - edge / 0.08;
-        else v *= 0.3 + (edge / 0.08) * 0.5;
+        else v *= 0.55 + (edge / 0.08) * 0.4;
       }
       break;
     }
@@ -247,8 +247,10 @@ function sample(r: Recipe, stops: RGB[], seed: number, px: number, py: number): 
       case 'cracks': {
         const k = cellular(x, y, s * 2, seed + 41);
         const e = k.f2 - k.f1;
-        if (e < 0.05) c = scale(c, 0.45);
-        else if (e < 0.08 && k.ox > 0) c = scale(c, 1.15);
+        if (k.id < 0.5) {
+          if (e < 0.03) c = scale(c, 0.5);
+          else if (e < 0.055 && k.ox > 0) c = scale(c, 1.12);
+        }
         break;
       }
       case 'drifts':
@@ -262,7 +264,9 @@ function sample(r: Recipe, stops: RGB[], seed: number, px: number, py: number): 
         break;
       }
       case 'twigs':
-        if (valueNoise(x, y, 96, 8, seed + 71) > 0.84) c = mix(c, TWIG, 0.8);
+        // Short diagonal twigs: noise on rotated axes (u + v, u - v still wrap every 1).
+        if (valueNoise((((x + y) % 1) + 1) % 1, (((x - y) % 1) + 1) % 1, 16, 96, seed + 71) > 0.86)
+          c = mix(c, TWIG, 0.75);
         break;
       case 'litter':
         if (cellular(x, y, s * 4, seed + 6).f1 < 0.12) c = mix(c, LITTER, 0.6);
