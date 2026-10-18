@@ -10,7 +10,7 @@ import {
 } from '../../src/save/storage';
 
 const valid: SaveData = {
-  version: 1,
+  version: 2,
   seed: 'maple-17',
   player: { x: 10, y: 20, energy: 80, treasures: 3, effects: [{ kind: 'zoom', remaining: 4 }] },
   discoveredBiomes: ['Forest'],
@@ -46,6 +46,32 @@ describe('save storage', () => {
     expect(loadSave(store)).toEqual({ status: 'ok', data: valid });
   });
 
+  it('migrates v1 saves (16 px tiles, 32-tile chunks) to the current layout', () => {
+    // v1 chunk "1,-1", local (20, 5) => world tile (52, -27) => 16-tile chunk (3, -2), local (4, 5).
+    const v1 = {
+      version: 1,
+      seed: 'old',
+      player: { x: 100, y: -40, energy: 50, treasures: 2, effects: [] },
+      discoveredBiomes: [],
+      chunkDiffs: { '1,-1': { picked: [5 * 32 + 20] } },
+    };
+    const data = parseSave(JSON.stringify(v1));
+    expect(data.version).toBe(2);
+    expect([data.player.x, data.player.y]).toEqual([200, -80]);
+    expect(data.chunkDiffs).toEqual({ '3,-2': { picked: [5 * 16 + 4] } });
+  });
+
+  it('rejects a v1 save with an out-of-range picked index', () => {
+    const v1 = {
+      version: 1,
+      seed: 'old',
+      player: { x: 0, y: 0, energy: 50, treasures: 0, effects: [] },
+      discoveredBiomes: [],
+      chunkDiffs: { '0,0': { picked: [1024] } },
+    };
+    expect(() => parseSave(JSON.stringify(v1))).toThrow(SaveError);
+  });
+
   it('reports an empty store', () => {
     expect(loadSave(new MemoryStore())).toEqual({ status: 'empty' });
   });
@@ -69,7 +95,7 @@ describe('save storage', () => {
   });
 
   it.each([
-    ['newer version', mutate((o) => (o.version = 2))],
+    ['newer version', mutate((o) => (o.version = 3))],
     ['missing seed', mutate((o) => delete o.seed)],
     ['empty seed', mutate((o) => (o.seed = ''))],
     ['bad energy', mutate((o) => ((o.player as Record<string, unknown>).energy = 'full'))],

@@ -138,7 +138,8 @@ export class Renderer {
         const img = this.itemCanvases.get(id);
         if (!img) continue;
         const bob = Math.round(Math.sin(s.time * 3 * Math.PI + tx * 7 + ty * 13));
-        ctx.drawImage(img, tx * TILE_PX + 4, ty * TILE_PX + 4 + bob);
+        const inset = (TILE_PX - img.width) / 2;
+        ctx.drawImage(img, tx * TILE_PX + inset, ty * TILE_PX + inset + bob);
       }
     }
 

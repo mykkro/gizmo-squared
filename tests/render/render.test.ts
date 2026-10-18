@@ -23,12 +23,17 @@ describe('color', () => {
 });
 
 describe('camera', () => {
-  it('chooses an integer zoom showing at least 14 tiles on the short side', () => {
-    expect(computeZoom(1080)).toBe(4);
-    expect(computeZoom(1170)).toBe(5);
-    expect(computeZoom(300)).toBe(2);
-    for (const side of [720, 900, 1080, 1440, 2160]) {
-      expect(side / (TILE_PX * computeZoom(side))).toBeGreaterThanOrEqual(14);
+  it('chooses the integer zoom closest to ~14 tiles on the short side', () => {
+    expect(TILE_PX).toBe(32);
+    expect(computeZoom(800)).toBe(2);
+    expect(computeZoom(1080)).toBe(2);
+    expect(computeZoom(1170)).toBe(3);
+    expect(computeZoom(2160)).toBe(5);
+    expect(computeZoom(300)).toBe(1);
+    for (let side = 640; side <= 2400; side += 40) {
+      const tiles = side / (TILE_PX * computeZoom(side));
+      expect(tiles, `side ${side}`).toBeGreaterThanOrEqual(10);
+      expect(tiles, `side ${side}`).toBeLessThan(21);
     }
   });
 
@@ -45,7 +50,12 @@ describe('camera', () => {
 
 describe('sprites', () => {
   it('are well-formed', () => {
-    for (const s of [...GIZMO_FRAMES, GIZMO_TIRED]) expect(spriteErrors(s)).toEqual([]);
+    for (const s of [...GIZMO_FRAMES, GIZMO_TIRED]) {
+      expect(spriteErrors(s)).toEqual([]);
+      expect([s.w, s.h]).toEqual([32, 32]);
+    }
+    for (const key of ITEM_KEYS)
+      expect([ITEM_SPRITES[key].w, ITEM_SPRITES[key].h]).toEqual([16, 16]);
     for (const key of ITEM_KEYS) expect(spriteErrors(ITEM_SPRITES[key]), key).toEqual([]);
   });
 });

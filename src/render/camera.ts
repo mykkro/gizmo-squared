@@ -1,8 +1,17 @@
 import { CAMERA_STIFFNESS, MIN_ZOOM, TARGET_TILES_SHORT_SIDE, TILE_PX } from '../config';
 
-/** Largest integer zoom that still shows TARGET_TILES_SHORT_SIDE tiles (min MIN_ZOOM). */
+/** Never zoom in so far that fewer than this many tiles fit on the short side. */
+const MIN_TILES_SHORT_SIDE = 10;
+
+/**
+ * Integer zoom closest to showing TARGET_TILES_SHORT_SIDE tiles. With 32 px tiles one zoom
+ * step changes the view a lot, so rounding down (as before) left small windows far too
+ * zoomed out.
+ */
 export function computeZoom(deviceShortSide: number): number {
-  return Math.max(MIN_ZOOM, Math.floor(deviceShortSide / (TILE_PX * TARGET_TILES_SHORT_SIDE)));
+  const nearest = Math.round(deviceShortSide / (TILE_PX * TARGET_TILES_SHORT_SIDE));
+  const maxZoom = Math.floor(deviceShortSide / (TILE_PX * MIN_TILES_SHORT_SIDE));
+  return Math.max(MIN_ZOOM, Math.min(nearest, maxZoom));
 }
 
 export function interpolate(prev: number, cur: number, alpha: number): number {

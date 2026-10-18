@@ -1,5 +1,7 @@
-export const TILE_PX = 16;
-export const CHUNK_SIZE = 32;
+/** Texture pixels per tile. Sprites are drawn at this resolution (Gizmo 32x32, items 16x16). */
+export const TILE_PX = 32;
+/** Tiles per chunk side; 16 x 32 px keeps baked chunk canvases at 512 x 512. */
+export const CHUNK_SIZE = 16;
 export const CHUNK_PX = TILE_PX * CHUNK_SIZE;
 
 export const TICK_DT = 1 / 60;
@@ -18,7 +20,7 @@ export const BAKES_PER_FRAME = 2;
 export const PREFETCH_GENERATIONS_PER_FRAME = 1;
 
 export const TARGET_TILES_SHORT_SIDE = 14;
-export const MIN_ZOOM = 2;
+export const MIN_ZOOM = 1;
 export const CAMERA_STIFFNESS = 8;
 
 export const SAVE_KEY = 'gizmo.save';

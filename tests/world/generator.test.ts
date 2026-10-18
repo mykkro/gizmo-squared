@@ -11,12 +11,12 @@ const LAYERS = ['terrain', 'biome', 'item', 'block', 'solid'] as const;
 describe('chunk helpers', () => {
   it('maps negative tiles to the right chunk and local index', () => {
     expect(tileToChunk(-1)).toBe(-1);
-    expect(tileToLocal(-1)).toBe(31);
-    expect(tileToChunk(-32)).toBe(-1);
-    expect(tileToLocal(-32)).toBe(0);
-    expect(tileToChunk(-33)).toBe(-2);
-    expect(tileToChunk(32)).toBe(1);
-    expect(tileToLocal(32)).toBe(0);
+    expect(tileToLocal(-1)).toBe(CHUNK_SIZE - 1);
+    expect(tileToChunk(-CHUNK_SIZE)).toBe(-1);
+    expect(tileToLocal(-CHUNK_SIZE)).toBe(0);
+    expect(tileToChunk(-CHUNK_SIZE - 1)).toBe(-2);
+    expect(tileToChunk(CHUNK_SIZE)).toBe(1);
+    expect(tileToLocal(CHUNK_SIZE)).toBe(0);
     expect(localIndex(3, 2)).toBe(2 * CHUNK_SIZE + 3);
   });
 });

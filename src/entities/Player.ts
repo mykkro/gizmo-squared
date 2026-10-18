@@ -1,8 +1,8 @@
 import { MAX_ENERGY, TILE_PX } from '../config';
 import type { EffectKind } from '../data/items';
 
-export const HITBOX_HALF_W = 5;
-export const HITBOX_H = 8;
+export const HITBOX_HALF_W = (TILE_PX * 5) / 16;
+export const HITBOX_H = TILE_PX / 2;
 
 export interface ActiveEffect {
   kind: EffectKind;
@@ -11,7 +11,7 @@ export interface ActiveEffect {
 }
 
 export class Player {
-  /** Centre of the feet, in world pixels. The hitbox spans x±5, y-8..y. */
+  /** Centre of the feet, in world pixels. The hitbox spans x ± HITBOX_HALF_W, y - HITBOX_H..y. */
   x = 0;
   y = 0;
   vx = 0;
@@ -36,7 +36,7 @@ export class Player {
 
   /** Puts the hitbox fully inside the given tile. */
   placeAtTile(tx: number, ty: number): void {
-    this.setPosition(tx * TILE_PX + TILE_PX / 2, ty * TILE_PX + TILE_PX - 4);
+    this.setPosition(tx * TILE_PX + TILE_PX / 2, ty * TILE_PX + (TILE_PX * 3) / 4);
   }
 
   tileX(): number {

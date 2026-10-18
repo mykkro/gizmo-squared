@@ -14,6 +14,7 @@ export const GEN_CONFIG = {
   /** Multiplies biome.itemChance to get the per-tile item probability. */
   itemDensity: 0.06,
   obstacle: { chance: 0.04, minSpacing: 2 },
-  building: { attempts: 2, chance: 0.35 },
+  /** Per chunk; chunks are 16x16 tiles, so this keeps roughly the earlier density per area. */
+  building: { attempts: 1, chance: 0.18 },
   terrainDetail: { minScale: 4, maxScale: 12, octaves: 2 },
 } as const;

@@ -1,12 +1,13 @@
-import { CHUNK_SIZE, SAVE_KEY } from '../config';
+import { CHUNK_SIZE, SAVE_KEY, TILE_PX } from '../config';
 import { EFFECT_KINDS } from '../data/items';
 import type { ActiveEffect } from '../entities/Player';
+import { chunkKey, localIndex, tileToChunk, tileToLocal } from '../world/chunk';
 import type { ChunkDiff } from '../world/World';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export interface SaveData {
-  version: 1;
+  version: 2;
   seed: string;
   player: { x: number; y: number; energy: number; treasures: number; effects: ActiveEffect[] };
   discoveredBiomes: string[];
@@ -56,11 +57,36 @@ export function validateSave(o: unknown): o is SaveData {
   return true;
 }
 
+const V1_TILE_PX = 16;
+const V1_CHUNK_SIZE = 32;
+
 /**
- * Upgrades older save shapes to the current version. v1 is the first version; future
- * versions add steps here, e.g. `if (o.version === 1) o = v1ToV2(o);`.
+ * v1 used 16 px tiles and 32-tile chunks. Scales the player position and re-keys collected
+ * items to the current chunk layout. Anything malformed is returned unconverted so that
+ * validation rejects it.
  */
+function migrateV1(o: Record<string, unknown>): unknown {
+  const p = o.player;
+  if (!isObj(p) || !isNum(p.x) || !isNum(p.y) || !isObj(o.chunkDiffs)) return o;
+  const scale = TILE_PX / V1_TILE_PX;
+  const chunkDiffs: Record<string, ChunkDiff> = {};
+  for (const [key, d] of Object.entries(o.chunkDiffs)) {
+    const m = /^(-?\d+),(-?\d+)$/.exec(key);
+    if (!m || !isObj(d) || !Array.isArray(d.picked)) return o;
+    for (const i of d.picked) {
+      if (!Number.isInteger(i) || i < 0 || i >= V1_CHUNK_SIZE * V1_CHUNK_SIZE) return o;
+      const tx = Number(m[1]) * V1_CHUNK_SIZE + (i % V1_CHUNK_SIZE);
+      const ty = Number(m[2]) * V1_CHUNK_SIZE + Math.floor(i / V1_CHUNK_SIZE);
+      const k = chunkKey(tileToChunk(tx), tileToChunk(ty));
+      (chunkDiffs[k] ??= { picked: [] }).picked.push(localIndex(tileToLocal(tx), tileToLocal(ty)));
+    }
+  }
+  return { ...o, version: 2, player: { ...p, x: p.x * scale, y: p.y * scale }, chunkDiffs };
+}
+
+/** Upgrades older save shapes to the current version, one step at a time. */
 export function migrate(o: unknown): unknown {
+  if (isObj(o) && o.version === 1) return migrateV1(o);
   return o;
 }
 

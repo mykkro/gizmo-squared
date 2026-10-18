@@ -8,6 +8,9 @@ import { parseHex, shade, type RGB } from './color';
 
 export type CanvasLike = OffscreenCanvas | HTMLCanvasElement;
 
+/** Last pixel row/column of a block's inset square (blocks leave a 1 px terrain margin). */
+const LAST = TILE_PX - 2;
+
 /** ±4% per-tile brightness so flat areas aren't dead flat. */
 export const SHADE_VARIATION = 0.04;
 
@@ -32,8 +35,8 @@ export function fillChunkPixels(chunk: ChunkData, seed: number, out: Uint8Clampe
       for (let py = 0; py < TILE_PX; py++) {
         for (let px = 0; px < TILE_PX; px++) {
           let c = base;
-          if (block && px >= 1 && px <= 14 && py >= 1 && py <= 14) {
-            const edge = px === 1 || px === 14 || py === 1 || py === 14;
+          if (block && px >= 1 && px <= LAST && py >= 1 && py <= LAST) {
+            const edge = px === 1 || px === LAST || py === 1 || py === LAST;
             c = edge ? BLOCK_EDGE_RGB[block.id] : BLOCK_RGB[block.id];
           }
           const o = ((ly * TILE_PX + py) * CHUNK_PX + lx * TILE_PX + px) * 4;

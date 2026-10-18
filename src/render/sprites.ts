@@ -36,116 +36,194 @@ export function spriteToCanvas(s: PixelSprite): HTMLCanvasElement {
   return canvas;
 }
 
+/** Palette key for the pixel whose centre is (x, y), or null for empty. */
+type Shape = (x: number, y: number) => string | null;
+
+const inEllipse = (x: number, y: number, cx: number, cy: number, rx: number, ry: number) =>
+  ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+
+/**
+ * Rasterises a shape at pixel centres, then draws a 1 px outline around everything opaque.
+ * `under` fills what is still empty afterwards (e.g. a soft drop shadow).
+ */
+function paint(
+  w: number,
+  h: number,
+  palette: Record<string, string>,
+  outline: string,
+  shape: Shape,
+  under?: Shape,
+): PixelSprite {
+  const grid = Array.from({ length: h }, (_, y) =>
+    Array.from({ length: w }, (_, x) => shape(x + 0.5, y + 0.5)),
+  );
+  const filled = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && !!grid[y][x];
+  const rows = grid.map((row, y) =>
+    row
+      .map((c, x) => {
+        if (c) return c;
+        if (filled(x - 1, y) || filled(x + 1, y) || filled(x, y - 1) || filled(x, y + 1)) {
+          return outline;
+        }
+        return under?.(x + 0.5, y + 0.5) ?? '.';
+      })
+      .join(''),
+  );
+  return { w, h, palette, rows };
+}
+
+// ---------------------------------------------------------------------------------------
+// Gizmo (32 x 32)
+
 const GIZMO_PALETTE = {
-  k: '#1d2b2a',
-  g: '#5fd16b',
-  G: '#3a9c4a',
+  k: '#1d2b2a', // outline, mouth, closed eyes, antenna stalk
+  g: '#5fd16b', // body
+  G: '#3a9c4a', // body shade, upper feet
+  h: '#a8f0a0', // body highlight
+  b: '#7fe08a', // belly panel
+  F: '#2c7a3a', // feet underside
   w: '#ffffff',
-  e: '#1d2b2a',
-  a: '#ffd23f',
-  c: '#ff8fa3',
+  e: '#1d2b2a', // pupils
+  a: '#ffd23f', // antenna bulb
+  A: '#fff6c4', // antenna bulb highlight
+  c: '#ff8fa3', // cheeks
+  s: 'rgba(0, 0, 0, 0.28)', // drop shadow
 };
 
-const GIZMO_TOP = [
-  '.......aa.......',
-  '.......kk.......',
-  '....kkkkkkkk....',
-  '...kggggggggk...',
-  '..kggggggggggk..',
-];
-const GIZMO_EYES_OPEN = ['..kgwwggggwwgk..', '..kgweggggewgk..'];
-const GIZMO_EYES_SHUT = ['..kggggggggggk..', '..kgkkggggkkgk..'];
-const GIZMO_BODY = [
-  '..kggggggggggk..',
-  '..kgcggkkggcgk..',
-  '..kggggggggggk..',
-  '...kGGGGGGGGk...',
-  '....kkkkkkkk....',
-];
-const LEGS_TOGETHER = ['.....kG..Gk.....', '.....kk..kk.....'];
-const LEGS_APART = ['....kG....Gk....', '....kk....kk....'];
-const BLANK = ['................', '................'];
+const BODY = { cx: 16, cy: 17, rx: 11.5, ry: 10 };
 
-const gizmo = (eyes: string[], legs: string[]): PixelSprite => ({
-  w: 16,
-  h: 16,
-  palette: GIZMO_PALETTE,
-  rows: [...GIZMO_TOP, ...eyes, ...GIZMO_BODY, ...legs, ...BLANK],
-});
+function gizmoShape(legsApart: boolean, eyesOpen: boolean): Shape {
+  const feet = legsApart
+    ? [
+        [9.5, 27],
+        [22.5, 28],
+      ]
+    : [
+        [11, 27.5],
+        [21, 27.5],
+      ];
+  return (x, y) => {
+    // Antenna: glowing bulb on a stalk.
+    if (inEllipse(x, y, 16, 3.5, 1.9, 1.9)) return x < 15.8 && y < 3.3 ? 'A' : 'a';
+    if (Math.abs(x - 16) < 0.6 && y > 5 && y < 7.2) return 'k';
 
-/** Feet (last leg row) are row 13; draw with the sprite's row 14 at the player's y. */
-export const GIZMO_FEET_ROW = 13;
-export const GIZMO_FRAMES: readonly PixelSprite[] = [
-  gizmo(GIZMO_EYES_OPEN, LEGS_TOGETHER),
-  gizmo(GIZMO_EYES_OPEN, LEGS_APART),
-];
-export const GIZMO_TIRED: PixelSprite = gizmo(GIZMO_EYES_SHUT, LEGS_TOGETHER);
+    for (const [fx, fy] of feet) {
+      if (inEllipse(x, y, fx, fy, 3.2, 1.9)) return y < fy ? 'G' : 'F';
+    }
 
-const BERRY_ROWS = [
-  '...ll...',
-  '...l....',
-  '..rrrr..',
-  '.rhrrrr.',
-  '.rrrrrr.',
-  '.rrrrrd.',
-  '..rddd..',
-  '........',
-];
+    if (!inEllipse(x, y, BODY.cx, BODY.cy, BODY.rx, BODY.ry)) return null;
 
-const berry = (r: string, d: string, h: string): PixelSprite => ({
-  w: 8,
-  h: 8,
-  palette: { l: '#3fa34d', r, d, h },
-  rows: BERRY_ROWS,
-});
+    for (const ex of [11.5, 20.5]) {
+      if (eyesOpen && inEllipse(x, y, ex, 15, 2.6, 3.2)) {
+        if (Math.abs(x - ex) < 0.6 && Math.abs(y - 14.5) < 0.6) return 'w'; // catch-light
+        return inEllipse(x, y, ex + 0.7, 15.7, 1.5, 1.9) ? 'e' : 'w';
+      }
+      if (!eyesOpen && Math.abs(y - 15.5) < 0.6 && Math.abs(x - ex) < 2.6) return 'k';
+    }
+
+    if (inEllipse(x, y, 8.5, 19.5, 1.8, 1.2) || inEllipse(x, y, 23.5, 19.5, 1.8, 1.2)) return 'c';
+
+    // Smile: a short line with raised corners.
+    if (Math.abs(y - 21.5) < 0.6 && Math.abs(x - 16) < 1.6) return 'k';
+    if (Math.abs(y - 20.5) < 0.6 && Math.abs(Math.abs(x - 16) - 2) < 0.6) return 'k';
+
+    if (inEllipse(x, y, 16, 23.5, 5, 2.2)) return 'b';
+
+    // Light from the top-left.
+    const nx = (x - BODY.cx) / BODY.rx;
+    const ny = (y - BODY.cy) / BODY.ry;
+    const light = -0.55 * nx - 0.83 * ny;
+    const r2 = nx * nx + ny * ny;
+    if (light > 0.55 && r2 > 0.6 && r2 < 0.92) return 'h'; // rim highlight
+    if (light < -0.55) return 'G';
+    return 'g';
+  };
+}
+
+const gizmoShadow: Shape = (x, y) => (inEllipse(x, y, 16, 29.6, 8.5, 1.6) ? 's' : null);
+
+const gizmo = (legsApart: boolean, eyesOpen: boolean) =>
+  paint(32, 32, GIZMO_PALETTE, 'k', gizmoShape(legsApart, eyesOpen), gizmoShadow);
+
+/** Bottom row of Gizmo's feet; the renderer puts the row below it on the player's y. */
+export const GIZMO_FEET_ROW = 29;
+export const GIZMO_FRAMES: readonly PixelSprite[] = [gizmo(false, true), gizmo(true, true)];
+export const GIZMO_TIRED: PixelSprite = gizmo(false, false);
+
+// ---------------------------------------------------------------------------------------
+// Items (16 x 16)
+
+function berry(r: string, d: string, h: string, o: string, sparkle = false): PixelSprite {
+  const shape: Shape = (x, y) => {
+    if (inEllipse(x, y, 10.8, 2.6, 2.3, 1.1)) return 'l';
+    if (Math.abs(x - 8) < 0.6 && y > 1.5 && y < 4.5) return 's';
+    if (!inEllipse(x, y, 8, 9.5, 5.6, 5.4)) return null;
+    if (inEllipse(x, y, 6, 7.5, 1.3, 1.1)) return 'h';
+    return 0.6 * ((x - 8) / 5.6) + 0.8 * ((y - 9.5) / 5.4) > 0.45 ? 'd' : 'r';
+  };
+  const twinkle: Shape = (x, y) =>
+    sparkle && ((x === 1.5 && y === 2.5) || (x === 14.5 && y === 13.5)) ? 'y' : null;
+  return paint(
+    16,
+    16,
+    { l: '#3fa34d', s: '#6b4a26', y: '#fff8d0', r, d, h, o },
+    'o',
+    shape,
+    twinkle,
+  );
+}
+
+const zoomLeaf = paint(
+  16,
+  16,
+  { l: '#3fd0c9', d: '#1e8f8a', h: '#a6f2ec', o: '#0f4f4c' },
+  'o',
+  (x, y) => {
+    const u = (x - 8 + (y - 8)) / Math.SQRT2;
+    const v = (x - 8 - (y - 8)) / Math.SQRT2;
+    if (u > 5 && u < 7.6 && Math.abs(v) < 0.6) return 'd'; // stem
+    if ((u / 5.6) ** 2 + (v / 2.8) ** 2 > 1) return null;
+    if (Math.abs(v) < 0.5) return 'd'; // midrib
+    return v < -0.9 ? 'h' : 'l';
+  },
+);
+
+const magnetPetal = paint(
+  16,
+  16,
+  { p: '#b46ee8', P: '#d9a8ff', y: '#ffe066', Y: '#fff6c4', o: '#4b2270' },
+  'o',
+  (x, y) => {
+    if (inEllipse(x, y, 8, 8, 2.1, 2.1)) return x < 7.6 && y < 7.6 ? 'Y' : 'y';
+    for (let k = 0; k < 5; k++) {
+      const a = -Math.PI / 2 + (k * 2 * Math.PI) / 5;
+      const cx = 8 + Math.cos(a) * 3.9;
+      const cy = 8 + Math.sin(a) * 3.9;
+      if (inEllipse(x, y, cx, cy, 2.6, 2.6)) return y < cy - 0.8 ? 'P' : 'p';
+    }
+    return null;
+  },
+);
+
+const sapDrop = paint(
+  16,
+  16,
+  { a: '#d98a1c', b: '#a35f08', h: '#ffd28a', o: '#5a3304' },
+  'o',
+  (x, y) => {
+    const inBall = inEllipse(x, y, 8, 10, 4.6, 4.4);
+    const inTip = y >= 2.5 && y < 10 && Math.abs(x - 8) < (y - 2.5) * 0.62;
+    if (!inBall && !inTip) return null;
+    if (inEllipse(x, y, 6.3, 9.3, 1.1, 1.6)) return 'h';
+    return (x - 8) * 0.5 + (y - 10) * 0.8 > 2.2 ? 'b' : 'a';
+  },
+);
 
 export const ITEM_SPRITES: Record<ItemKey, PixelSprite> = {
-  berry: berry('#e5484d', '#a3242a', '#ffb3b5'),
-  golden: berry('#f5b82e', '#b07a12', '#fff1b8'),
-  sour: berry('#9bd13b', '#5e8a1c', '#e2f7b5'),
-  zoom: {
-    w: 8,
-    h: 8,
-    palette: { l: '#3fd0c9', d: '#1e8f8a' },
-    rows: [
-      '......l.',
-      '.....ll.',
-      '...llll.',
-      '..lllld.',
-      '.llldd..',
-      '.lldd...',
-      '.dd.....',
-      'd.......',
-    ],
-  },
-  magnet: {
-    w: 8,
-    h: 8,
-    palette: { p: '#b46ee8', q: '#7d3fb3', y: '#ffe066' },
-    rows: [
-      '...pp...',
-      '..pqqp..',
-      '.ppyypp.',
-      'pqyyyyqp',
-      'pqyyyyqp',
-      '.ppyypp.',
-      '..pqqp..',
-      '...pp...',
-    ],
-  },
-  sap: {
-    w: 8,
-    h: 8,
-    palette: { a: '#d98a1c', b: '#a35f08', h: '#ffd28a' },
-    rows: [
-      '...a....',
-      '...a....',
-      '..aaa...',
-      '.aahaa..',
-      '.ahaaa..',
-      '.aaaab..',
-      '..abb...',
-      '........',
-    ],
-  },
+  berry: berry('#e5484d', '#a3242a', '#ffb3b5', '#5a1418'),
+  golden: berry('#f5b82e', '#b07a12', '#fff1b8', '#5c3d05', true),
+  sour: berry('#9bd13b', '#5e8a1c', '#e2f7b5', '#2f4a0c'),
+  zoom: zoomLeaf,
+  magnet: magnetPetal,
+  sap: sapDrop,
 };

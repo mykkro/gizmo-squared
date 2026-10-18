@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { BASE_SPEED, TICK_DT } from '../../src/config';
+import { BASE_SPEED, TICK_DT, TILE_PX } from '../../src/config';
 import { hash2, mulberry32 } from '../../src/core/rng';
 import type { Vec2 } from '../../src/core/vec';
 import { TERRAINS, TERRAIN_INDEX, type TerrainDef } from '../../src/data/terrains';
-import { Player } from '../../src/entities/Player';
+import { HITBOX_HALF_W, Player } from '../../src/entities/Player';
 import { World } from '../../src/world/World';
 import { addEffect } from '../../src/systems/effects';
 import {
@@ -55,8 +55,8 @@ describe('movement', () => {
     const p = new Player();
     p.placeAtTile(0, 0);
     run(p, RIGHT, 2, env(wall));
-    expect(p.x + 5).toBeLessThanOrEqual(48);
-    expect(p.x + 5).toBeGreaterThan(46);
+    expect(p.x + HITBOX_HALF_W).toBeLessThanOrEqual(3 * TILE_PX);
+    expect(p.x + HITBOX_HALF_W).toBeGreaterThan(3 * TILE_PX - 2);
   });
 
   it('slides along a wall when moving diagonally', () => {
@@ -65,15 +65,15 @@ describe('movement', () => {
     p.placeAtTile(0, 0);
     const y0 = p.y;
     run(p, { x: Math.SQRT1_2, y: Math.SQRT1_2 }, 1, env(wall));
-    expect(p.y - y0).toBeGreaterThan(40);
-    expect(p.x + 5).toBeLessThanOrEqual(16);
+    expect(p.y - y0).toBeGreaterThan(2 * TILE_PX);
+    expect(p.x + HITBOX_HALF_W).toBeLessThanOrEqual(TILE_PX);
   });
 
   it('does not tunnel through a one-tile wall with a huge step', () => {
     const p = new Player();
     p.placeAtTile(0, 0);
-    moveAxis(p, 'x', 40, solidSet([[1, 0]]));
-    expect(p.x + 5).toBeLessThanOrEqual(16);
+    moveAxis(p, 'x', 2.5 * TILE_PX, solidSet([[1, 0]]));
+    expect(p.x + HITBOX_HALF_W).toBeLessThanOrEqual(TILE_PX);
   });
 
   it('never ends inside a solid tile under random input', () => {

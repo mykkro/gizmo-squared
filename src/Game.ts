@@ -15,7 +15,7 @@ import type { Hud } from './ui/hud';
 import { World } from './world/World';
 
 /** Camera looks slightly above the feet so Gizmo appears centred. */
-const CAMERA_OFFSET_Y = 6;
+const CAMERA_OFFSET_Y = (TILE_PX * 3) / 8;
 const FLYER_SECONDS = 0.3;
 
 export class Game {
@@ -112,7 +112,7 @@ export class Game {
   toSaveData(): SaveData {
     const p = this.player;
     return {
-      version: 1,
+      version: 2,
       seed: this.world.seedText,
       player: {
         x: p.x,
