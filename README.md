@@ -1,7 +1,17 @@
 # Gizmo's World
 
-A cozy exploration game: wander an endless, procedurally generated pixel-art world with Gizmo,
-discover biomes and collect treasures.
+A cozy exploration game: wander an endless, procedurally generated world with Gizmo, discover
+biomes and collect treasures. Terrain is textured and blended procedurally, and a fog of war
+lifts as you explore.
+
+![Gizmo on a beach between grassland and stone, with soft fog at the edges and the minimap in the corner](docs/screenshot.png)
+
+## Controls
+
+- **Move:** WASD or arrow keys; on touch screens, drag on the left side of the screen
+- **Minimap:** M or the ⌖ button
+- **Menu** (new world, export/import save): ☰ button
+- **Debug overlay:** F3 or `?debug` in the URL; B tints biomes while it is open
 
 ## Develop
 
@@ -23,7 +33,7 @@ settings. For itch.io, zip the contents of `dist/` and upload it as an HTML game
 - `src/data` — content tables (biomes, terrains, items, blocks, buildings)
 - `src/world` — deterministic world generation and chunk cache
 - `src/systems` — movement, energy, effects, pickups, discovery
-- `src/render` — chunk baking and drawing
+- `src/render` — procedural textures, terrain blending, chunk baking, sprites, fog, minimap
 - `src/ui`, `src/input`, `src/save` — HUD/menu, controls, save files
 
 Design docs live in `docs/superpowers/`.
