@@ -180,3 +180,8 @@ export function averageRGB(index: number): RGB {
   }
   return averages[index];
 }
+
+/** How many terrain textures have been generated so far (debug / startup checks). */
+export function texturesGenerated(): number {
+  return cache.filter(Boolean).length;
+}

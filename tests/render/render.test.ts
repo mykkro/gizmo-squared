@@ -4,7 +4,7 @@ import { BLOCK_ID } from '../../src/data/blocks';
 import { ITEM_KEYS } from '../../src/data/items';
 import { TERRAIN_INDEX } from '../../src/data/terrains';
 import { BakeCache } from '../../src/render/BakeCache';
-import { Camera, chunkRect, computeZoom } from '../../src/render/camera';
+import { Camera, chunkRect, computeZoom, spanRect } from '../../src/render/camera';
 import { fillChunkPixels, type CanvasLike } from '../../src/render/chunkBaker';
 import { parseHex, shade } from '../../src/render/color';
 import { texel } from '../../src/render/textures';
@@ -29,6 +29,15 @@ describe('camera', () => {
     expect(computeZoom(1120)).toBeCloseTo(2.5);
     expect(computeZoom(100)).toBe(0.5);
     for (const s of [700, 1080, 1500]) expect(s / (TILE_PX * computeZoom(s))).toBeCloseTo(14);
+  });
+
+  it('spans (e.g. the fog layer) round both ends once: width error stays within 1 px', () => {
+    for (let origin = 600; origin < 700; origin += 0.37) {
+      const z = 2.41;
+      const [start, size] = spanRect(-3 * 128, 9 * 128, z, origin);
+      expect(start).toBe(Math.round(origin - 3 * 128 * z));
+      expect(Math.abs(size - 12 * 128 * z)).toBeLessThanOrEqual(1);
+    }
   });
 
   it('chunk rectangles tile without gaps or overlap at fractional zoom', () => {

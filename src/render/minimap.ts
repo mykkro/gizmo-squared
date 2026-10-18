@@ -1,5 +1,4 @@
 import { LruCache } from '../core/lru';
-import { TERRAINS } from '../data/terrains';
 import type { ExploredMap } from '../world/explored';
 import type { World } from '../world/World';
 import type { RGB } from './color';
@@ -16,8 +15,8 @@ export const FOG_RGB: RGB = [20, 24, 28];
 
 const BLOCK_CACHE_LIMIT = 64;
 const BLOCKS_PER_COMPOSE = 1;
-/** Average colour of each terrain texture, so the map matches the main view. */
-const TERRAIN_RGB: RGB[] = TERRAINS.map((_, i) => averageRGB(i));
+/** Average colour of a terrain texture (matches the main view); textures generate on first use. */
+const terrainRGB = (i: number): RGB => averageRGB(i);
 
 /** Terrain index of a world tile. */
 export type TerrainSampler = (tx: number, ty: number) => number;
@@ -83,7 +82,7 @@ export class MinimapModel {
         for (let mx = x0; mx < x1; mx++) {
           const c =
             block && this.explored.isTileRevealed(mx * TILES_PER_MAP_PX, my * TILES_PER_MAP_PX)
-              ? TERRAIN_RGB[block[(my - by * BLOCK_PX) * BLOCK_PX + (mx - bx * BLOCK_PX)]]
+              ? terrainRGB(block[(my - by * BLOCK_PX) * BLOCK_PX + (mx - bx * BLOCK_PX)])
               : FOG_RGB;
           const o = ((my - my0) * MAP_PX + (mx - mx0)) * 4;
           out[o] = c[0];

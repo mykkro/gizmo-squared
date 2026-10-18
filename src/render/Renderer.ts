@@ -6,9 +6,18 @@ import { isTired } from '../systems/energy';
 import { CELL_TILES, type ExploredMap } from '../world/explored';
 import type { World } from '../world/World';
 import { BakeCache } from './BakeCache';
-import { chunkRect, computeZoom, interpolate, originOf, toScreen, type Camera } from './camera';
+import {
+  chunkRect,
+  computeZoom,
+  interpolate,
+  originOf,
+  spanRect,
+  toScreen,
+  type Camera,
+} from './camera';
 import { bakeChunk } from './chunkBaker';
 import { fogMask } from './fog';
+import { SpriteCache } from './spriteCache';
 import { GIZMO_DEFS, GIZMO_FEET_ROW, ITEM_DEFS, rasterize, type SpriteDef } from './sprites';
 
 /** An item flying towards Gizmo after a magnet pickup. t goes 0 → 1. */
@@ -42,7 +51,7 @@ export class Renderer {
   private readonly ctx: CanvasRenderingContext2D;
   private world: World | null = null;
   private bakes: BakeCache | null = null;
-  private readonly hd = new Map<SpriteDef, { scale: number; canvas: HTMLCanvasElement }>();
+  private readonly sprites = new SpriteCache<SpriteDef, HTMLCanvasElement>(Renderer.toCanvas);
   private readonly fogCanvas = document.createElement('canvas');
 
   constructor(private readonly canvas: HTMLCanvasElement) {
@@ -77,11 +86,9 @@ export class Renderer {
     };
   }
 
-  /** Sprite rasterised at the current zoom (cached until the zoom changes). */
-  private sprite(def: SpriteDef): HTMLCanvasElement {
-    const hit = this.hd.get(def);
-    if (hit && hit.scale === this.zoom) return hit.canvas;
-    const img = rasterize(def, this.zoom);
+  /** Rasterises a sprite definition into a canvas (used by the sprite cache). */
+  private static toCanvas(def: SpriteDef, scale: number): HTMLCanvasElement {
+    const img = rasterize(def, scale);
     const canvas = document.createElement('canvas');
     canvas.width = img.width;
     canvas.height = img.height;
@@ -90,7 +97,6 @@ export class Renderer {
     const data = ctx.createImageData(img.width, img.height);
     data.data.set(img.data);
     ctx.putImageData(data, 0, 0);
-    this.hd.set(def, { scale: this.zoom, canvas });
     return canvas;
   }
 
@@ -163,16 +169,21 @@ export class Renderer {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
-    // Sprites are pre-rasterised at the zoom, placed at whole device pixels.
-    const draw = (img: HTMLCanvasElement, worldX: number, worldY: number, flip = false) => {
+    // Sprites are pre-rasterised near the zoom (see SpriteCache) and drawn at def size x zoom,
+    // placed at whole device pixels.
+    this.sprites.beginFrame();
+    const draw = (def: SpriteDef, worldX: number, worldY: number, flip = false) => {
+      const img = this.sprites.get(def, z);
       const sx = toScreen(worldX, camX, z, canvas.width);
       const sy = toScreen(worldY, camY, z, canvas.height);
+      const w = def.w * z;
+      const h = def.h * z;
       if (flip) {
-        ctx.setTransform(-1, 0, 0, 1, sx + img.width, sy);
-        ctx.drawImage(img, 0, 0);
+        ctx.setTransform(-1, 0, 0, 1, sx + w, sy);
+        ctx.drawImage(img, 0, 0, w, h);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       } else {
-        ctx.drawImage(img, sx, sy);
+        ctx.drawImage(img, sx, sy, w, h);
       }
     };
 
@@ -184,7 +195,7 @@ export class Renderer {
         const def = ITEM_DEFS[ITEMS[id - 1].key];
         const inset = (TILE_PX - def.w) / 2;
         const bob = Math.sin(s.time * 3 * Math.PI + tx * 7 + ty * 13);
-        draw(this.sprite(def), tx * TILE_PX + inset, ty * TILE_PX + inset + bob);
+        draw(def, tx * TILE_PX + inset, ty * TILE_PX + inset + bob);
       }
     }
 
@@ -197,7 +208,7 @@ export class Renderer {
       const e = f.t * f.t;
       const x = f.fromX + (px - f.fromX) * e;
       const y = f.fromY + (py - HITBOX_H - f.fromY) * e;
-      draw(this.sprite(def), x - def.w / 2, y - def.h / 2);
+      draw(def, x - def.w / 2, y - def.h / 2);
     }
 
     this.drawFog(s.explored, ox, oy, left, top, right, bottom);
@@ -206,7 +217,7 @@ export class Renderer {
     const def = isTired(p)
       ? GIZMO_DEFS.tired
       : GIZMO_DEFS.walk[p.moving ? Math.floor(p.animTime * 6) % GIZMO_DEFS.walk.length : 0];
-    draw(this.sprite(def), px - def.w / 2, py - (GIZMO_FEET_ROW + 1), p.facing === -1);
+    draw(def, px - def.w / 2, py - (GIZMO_FEET_ROW + 1), p.facing === -1);
   }
 
   /** Soft fog of war: one mask texel per fog cell, stretched with smoothing. */
@@ -241,8 +252,9 @@ export class Renderer {
       img.data[i * 4 + 3] = mask[i];
     }
     fctx.putImageData(img, 0, 0);
-    const [x, cw] = chunkRect(c0x, CELL_PX, this.zoom, ox);
-    const [y, ch] = chunkRect(c0y, CELL_PX, this.zoom, oy);
-    this.ctx.drawImage(fc, x, y, cw * w, ch * h);
+    // Round the ends of the whole fog span once, so the layer never stretches while walking.
+    const [x, fw] = spanRect(c0x * CELL_PX, (c0x + w) * CELL_PX, this.zoom, ox);
+    const [y, fh] = spanRect(c0y * CELL_PX, (c0y + h) * CELL_PX, this.zoom, oy);
+    this.ctx.drawImage(fc, x, y, fw, fh);
   }
 }

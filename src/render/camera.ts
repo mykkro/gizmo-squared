@@ -22,9 +22,18 @@ export function chunkRect(
   zoom: number,
   origin: number,
 ): [number, number] {
-  const start = Math.round(origin + index * chunkPx * zoom);
-  const end = Math.round(origin + (index + 1) * chunkPx * zoom);
-  return [start, end - start];
+  return spanRect(index * chunkPx, (index + 1) * chunkPx, zoom, origin);
+}
+
+/** Device rectangle [start, size] covering world span [startWorld, endWorld), both ends rounded once. */
+export function spanRect(
+  startWorld: number,
+  endWorld: number,
+  zoom: number,
+  origin: number,
+): [number, number] {
+  const start = Math.round(origin + startWorld * zoom);
+  return [start, Math.round(origin + endWorld * zoom) - start];
 }
 
 export function interpolate(prev: number, cur: number, alpha: number): number {
