@@ -31,7 +31,7 @@ export function startLoop(
   tickSeconds: number,
   maxTicks: number,
   update: (dt: number) => void,
-  render: (frameSeconds: number) => void,
+  render: (frameSeconds: number, alpha: number) => void,
 ): LoopHandle {
   let acc = 0;
   let last = performance.now();
@@ -47,7 +47,7 @@ export function startLoop(
       acc = r.accumulator;
       for (let i = 0; i < r.ticks; i++) update(tickSeconds);
     }
-    render(frameSeconds);
+    render(frameSeconds, acc / tickSeconds);
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

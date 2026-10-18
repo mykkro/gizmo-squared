@@ -1,11 +1,11 @@
 import { CHUNK_PX, PREFETCH_GENERATIONS_PER_FRAME, TILE_PX } from '../config';
 import { BIOMES } from '../data/biomes';
 import { ITEMS, NO_ITEM } from '../data/items';
-import type { Player } from '../entities/Player';
+import { HITBOX_H, type Player } from '../entities/Player';
 import { isTired } from '../systems/energy';
 import type { World } from '../world/World';
 import { BakeCache } from './BakeCache';
-import { computeZoom, type Camera } from './camera';
+import { computeZoom, interpolate, screenOrigin, toScreen, type Camera } from './camera';
 import { bakeChunk, type CanvasLike } from './chunkBaker';
 import { GIZMO_FEET_ROW, GIZMO_FRAMES, GIZMO_TIRED, ITEM_SPRITES, spriteToCanvas } from './sprites';
 
@@ -23,6 +23,8 @@ export interface RenderState {
   flyers: readonly Flyer[];
   time: number;
   debugTint: boolean;
+  /** Fraction of a tick elapsed since the last update (0..1), for interpolation. */
+  alpha: number;
 }
 
 const BACKGROUND = '#1b1f24';
@@ -73,16 +75,17 @@ export class Renderer {
     if (!world || !bakes) return;
     bakes.beginFrame();
 
-    // Snap the camera to whole texture pixels so nothing shimmers.
-    const camX = Math.round(s.camera.x);
-    const camY = Math.round(s.camera.y);
+    // Interpolate between ticks, then snap the world origin to whole device pixels: smooth
+    // scrolling, and integer-zoom art drawn at integer world coordinates stays crisp.
+    const camX = interpolate(s.camera.prevX, s.camera.x, s.alpha);
+    const camY = interpolate(s.camera.prevY, s.camera.y, s.alpha);
     ctx.setTransform(
       z,
       0,
       0,
       z,
-      Math.floor(canvas.width / 2) - camX * z,
-      Math.floor(canvas.height / 2) - camY * z,
+      screenOrigin(camX, z, canvas.width),
+      screenOrigin(camY, z, canvas.height),
     );
     ctx.imageSmoothingEnabled = false;
 
@@ -150,31 +153,32 @@ export class Renderer {
       ctx.globalAlpha = 1;
     }
 
-    // Magnet flyers.
+    // Moving sprites are placed in device pixels relative to the camera (see toScreen), so
+    // they glide smoothly instead of hopping a whole texture pixel at a time.
     const p = s.player;
+    const px = interpolate(p.prevX, p.x, s.alpha);
+    const py = interpolate(p.prevY, p.y, s.alpha);
+    const sprite = (img: CanvasLike, worldX: number, worldY: number, flip = false) => {
+      const sx = toScreen(worldX, camX, z, canvas.width);
+      const sy = toScreen(worldY, camY, z, canvas.height);
+      ctx.setTransform(flip ? -z : z, 0, 0, z, flip ? sx + img.width * z : sx, sy);
+      ctx.drawImage(img, 0, 0);
+    };
+
+    // Magnet flyers.
     for (const f of s.flyers) {
       const img = this.itemCanvases.get(f.itemId);
       if (!img) continue;
       const e = f.t * f.t;
-      const x = f.fromX + (p.x - f.fromX) * e;
-      const y = f.fromY + (p.y - 8 - f.fromY) * e;
-      ctx.drawImage(img, Math.round(x - 4), Math.round(y - 4));
+      const x = f.fromX + (px - f.fromX) * e;
+      const y = f.fromY + (py - HITBOX_H - f.fromY) * e;
+      sprite(img, x - img.width / 2, y - img.height / 2);
     }
 
-    // Gizmo: feet row sits on p.y.
+    // Gizmo: the feet row sits on the player's y.
     const frame = isTired(p)
       ? this.gizmoTired
       : this.gizmo[p.moving ? Math.floor(p.animTime * 6) % this.gizmo.length : 0];
-    const gx = Math.round(p.x) - 8;
-    const gy = Math.round(p.y) - (GIZMO_FEET_ROW + 1);
-    if (p.facing === -1) {
-      ctx.save();
-      ctx.translate(gx + 16, gy);
-      ctx.scale(-1, 1);
-      ctx.drawImage(frame, 0, 0);
-      ctx.restore();
-    } else {
-      ctx.drawImage(frame, gx, gy);
-    }
+    sprite(frame, px - frame.width / 2, py - (GIZMO_FEET_ROW + 1), p.facing === -1);
   }
 }

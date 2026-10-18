@@ -59,6 +59,8 @@ function wobble(dir: Vec2, time: number): Vec2 {
 }
 
 export function updateMovement(p: Player, input: Vec2, dt: number, env: MovementEnv): void {
+  p.prevX = p.x;
+  p.prevY = p.y;
   const terrain = env.terrainAt(p.tileX(), p.tileY());
   const hasInput = input.x !== 0 || input.y !== 0;
   const dir = hasInput && hasEffect(p.effects, 'wobble') ? wobble(input, p.animTime) : input;

@@ -66,8 +66,8 @@ const loop = startLoop(
       save();
     }
   },
-  (frameSeconds) => {
-    game.render();
+  (frameSeconds, alpha) => {
+    game.render(alpha);
     if (frameSeconds > 0) fps = fps * 0.9 + (1 / frameSeconds) * 0.1;
     if (debug.visible) {
       const p = game.player;

@@ -22,13 +22,21 @@ export class Player {
   treasures = 0;
   effects: ActiveEffect[] = [];
   animTime = 0;
+  /** Position at the previous tick, for render interpolation. */
+  prevX = 0;
+  prevY = 0;
+
+  /** Moves instantly (no interpolation from the old position). */
+  setPosition(x: number, y: number): void {
+    this.x = this.prevX = x;
+    this.y = this.prevY = y;
+    this.vx = 0;
+    this.vy = 0;
+  }
 
   /** Puts the hitbox fully inside the given tile. */
   placeAtTile(tx: number, ty: number): void {
-    this.x = tx * TILE_PX + TILE_PX / 2;
-    this.y = ty * TILE_PX + TILE_PX - 4;
-    this.vx = 0;
-    this.vy = 0;
+    this.setPosition(tx * TILE_PX + TILE_PX / 2, ty * TILE_PX + TILE_PX - 4);
   }
 
   tileX(): number {

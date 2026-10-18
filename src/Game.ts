@@ -46,8 +46,7 @@ export class Game {
   load(data: SaveData): void {
     this.world = new World(data.seed, data.chunkDiffs);
     const p = new Player();
-    p.x = data.player.x;
-    p.y = data.player.y;
+    p.setPosition(data.player.x, data.player.y);
     p.energy = Math.min(MAX_ENERGY, Math.max(0, data.player.energy));
     p.treasures = Math.max(0, Math.floor(data.player.treasures));
     p.effects = data.player.effects.map((e) => ({ ...e }));
@@ -98,13 +97,14 @@ export class Game {
     this.time += dt;
   }
 
-  render(): void {
+  render(alpha: number): void {
     this.renderer.render({
       player: this.player,
       camera: this.camera,
       flyers: this.flyers,
       time: this.time,
       debugTint: this.debugTint,
+      alpha,
     });
     this.hud.update(this.player);
   }
