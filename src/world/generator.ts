@@ -51,9 +51,8 @@ export class WorldGenerator {
     return { biome, terrain };
   }
 
-  isTerrainSolid(biome: number, terrain: number): boolean {
-    const t = TERRAINS[terrain];
-    return t.solid || (BIOMES[biome].solidTerrains?.includes(t.key) ?? false);
+  isTerrainSolid(terrain: number): boolean {
+    return TERRAINS[terrain].solid;
   }
 
   generateChunk(cx: number, cy: number): ChunkData {
@@ -68,7 +67,7 @@ export class WorldGenerator {
         const { biome, terrain } = this.sampleTile(tx, ty);
         chunk.biome[i] = biome;
         chunk.terrain[i] = terrain;
-        if (this.isTerrainSolid(biome, terrain)) {
+        if (this.isTerrainSolid(terrain)) {
           chunk.solid[i] = 1;
           continue;
         }
@@ -151,7 +150,7 @@ export class WorldGenerator {
       for (let x = 0; x < b.blueprint[y].length; x++) {
         if (b.blueprint[y][x] === ' ') continue;
         const i = localIndex(ox + x, oy + y);
-        if (stamped[i] || this.isTerrainSolid(chunk.biome[i], chunk.terrain[i])) return false;
+        if (stamped[i] || this.isTerrainSolid(chunk.terrain[i])) return false;
       }
     }
     return true;

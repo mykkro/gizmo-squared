@@ -29,12 +29,14 @@ describe('biomes', () => {
     }
   });
 
-  it('every biome except Iceberg has walkable terrain', () => {
+  it('every biome has walkable terrain covering at least half its weight', () => {
     for (const b of BIOMES) {
-      if (b.name === 'Iceberg') continue;
-      const walkable = (Object.keys(b.terrains) as TerrainKey[]).some(
-        (k) => !TERRAINS[TERRAIN_INDEX[k]].solid && !b.solidTerrains?.includes(k),
-      );
+      const keys = Object.keys(b.terrains) as TerrainKey[];
+      const total = keys.reduce((s, k) => s + (b.terrains[k] ?? 0), 0);
+      const open = keys
+        .filter((k) => !TERRAINS[TERRAIN_INDEX[k]].solid)
+        .reduce((s, k) => s + (b.terrains[k] ?? 0), 0);
+      const walkable = open / total >= 0.5;
       expect(walkable, b.name).toBe(true);
     }
   });

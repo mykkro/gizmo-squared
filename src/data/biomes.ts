@@ -34,8 +34,6 @@ export interface BiomeDef {
   effect?: BiomeEffect;
   items: Partial<Record<ItemKey, number>>;
   obstacles: Partial<Record<BlockKey, number>>;
-  /** Terrains that are impassable only in this biome. */
-  solidTerrains?: readonly TerrainKey[];
   /** Debug-overlay tint. */
   tint: string;
 }
@@ -101,11 +99,10 @@ const DEFS: Record<BiomeName, Omit<BiomeDef, 'name'>> = {
     tint: '#f1f5f9',
   },
   Iceberg: {
-    terrains: { ice: 0.9, water: 0.1 },
+    terrains: { ice: 0.6, water: 0.3, snow: 0.1 },
     itemChance: 0.2,
     items: { berry: 1, zoom: 1, golden: 0.2, sour: 0.5 },
     obstacles: {},
-    solidTerrains: ['ice'],
     tint: '#a5d8ff',
   },
   Beach: {

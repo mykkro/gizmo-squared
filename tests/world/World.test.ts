@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CHUNK_SIZE } from '../../src/config';
+import { BIOME_INDEX } from '../../src/data/biomes';
 import { NO_ITEM } from '../../src/data/items';
 import { chunkKey, localIndex, tileToChunk, tileToLocal } from '../../src/world/chunk';
 import {
@@ -107,6 +108,20 @@ describe('World', () => {
     const exported = w.exportDiffs();
     Object.values(exported)[0].picked.push(999);
     expect(Object.values(w.exportDiffs())[0].picked).not.toContain(999);
+  });
+
+  it('Iceberg has walkable ice floes connected to a larger area', () => {
+    const w = new World('coverage');
+    const iceberg = BIOME_INDEX.Iceberg;
+    let found: TileCoord | null = null;
+    for (let ty = -1024; ty < 1024 && !found; ty += 8) {
+      for (let tx = -1024; tx < 1024 && !found; tx += 8) {
+        if (w.generator.field.biomeAt(tx, ty) !== iceberg) continue;
+        if (w.isSolid(tx, ty)) continue;
+        if (reachableCount((x, y) => w.isSolid(x, y), tx, ty, 256) >= 256) found = { tx, ty };
+      }
+    }
+    expect(found).not.toBeNull();
   });
 
   it('findSpawn returns a deterministic walkable tile', () => {
