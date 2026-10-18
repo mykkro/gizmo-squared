@@ -10,11 +10,12 @@ import {
 } from '../../src/save/storage';
 
 const valid: SaveData = {
-  version: 2,
+  version: 3,
   seed: 'maple-17',
   player: { x: 10, y: 20, energy: 80, treasures: 3, effects: [{ kind: 'zoom', remaining: 4 }] },
   discoveredBiomes: ['Forest'],
   chunkDiffs: { '0,0': { picked: [1, 2] }, '-1,3': { picked: [] } },
+  explored: { '0,-1': btoa(String.fromCharCode(...new Uint8Array(512).fill(7))) },
 };
 
 class MemoryStore implements KeyValueStore {
@@ -56,9 +57,19 @@ describe('save storage', () => {
       chunkDiffs: { '1,-1': { picked: [5 * 32 + 20] } },
     };
     const data = parseSave(JSON.stringify(v1));
-    expect(data.version).toBe(2);
+    expect(data.version).toBe(3);
+    expect(data.explored).toEqual({});
     expect([data.player.x, data.player.y]).toEqual([200, -80]);
     expect(data.chunkDiffs).toEqual({ '3,-2': { picked: [5 * 16 + 4] } });
+  });
+
+  it('migrates v2 saves by adding an empty explored map', () => {
+    const v2 = { ...structuredClone(valid), version: 2 } as Record<string, unknown>;
+    delete v2.explored;
+    const data = parseSave(JSON.stringify(v2));
+    expect(data.version).toBe(3);
+    expect(data.explored).toEqual({});
+    expect(data.chunkDiffs).toEqual(valid.chunkDiffs);
   });
 
   it('rejects a v1 save with an out-of-range picked index', () => {
@@ -95,7 +106,7 @@ describe('save storage', () => {
   });
 
   it.each([
-    ['newer version', mutate((o) => (o.version = 3))],
+    ['newer version', mutate((o) => (o.version = 4))],
     ['missing seed', mutate((o) => delete o.seed)],
     ['empty seed', mutate((o) => (o.seed = ''))],
     ['bad energy', mutate((o) => ((o.player as Record<string, unknown>).energy = 'full'))],
@@ -108,6 +119,7 @@ describe('save storage', () => {
     ['picked out of range', mutate((o) => (o.chunkDiffs = { '0,0': { picked: [1024] } }))],
     ['negative picked', mutate((o) => (o.chunkDiffs = { '0,0': { picked: [-1] } }))],
     ['biomes not strings', mutate((o) => (o.discoveredBiomes = [1]))],
+    ['bad explored region', mutate((o) => (o.explored = { '0,0': 'AAAA' }))],
     ['array instead of object', '[]'],
     ['not json', 'hello'],
   ])('rejects %s', (_label, raw) => {

@@ -2,16 +2,19 @@ import { CHUNK_SIZE, SAVE_KEY, TILE_PX } from '../config';
 import { EFFECT_KINDS } from '../data/items';
 import type { ActiveEffect } from '../entities/Player';
 import { chunkKey, localIndex, tileToChunk, tileToLocal } from '../world/chunk';
+import { isValidExploredData } from '../world/explored';
 import type { ChunkDiff } from '../world/World';
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export interface SaveData {
-  version: 2;
+  version: 3;
   seed: string;
   player: { x: number; y: number; energy: number; treasures: number; effects: ActiveEffect[] };
   discoveredBiomes: string[];
   chunkDiffs: Record<string, ChunkDiff>;
+  /** Fog-of-war bitsets per region (see ExploredMap). */
+  explored: Record<string, string>;
 }
 
 export class SaveError extends Error {}
@@ -54,7 +57,7 @@ export function validateSave(o: unknown): o is SaveData {
     if (!isObj(d) || !Array.isArray(d.picked)) return false;
     if (!d.picked.every((i) => Number.isInteger(i) && i >= 0 && i < AREA)) return false;
   }
-  return true;
+  return isValidExploredData(o.explored);
 }
 
 const V1_TILE_PX = 16;
@@ -84,10 +87,17 @@ function migrateV1(o: Record<string, unknown>): unknown {
   return { ...o, version: 2, player: { ...p, x: p.x * scale, y: p.y * scale }, chunkDiffs };
 }
 
+/** v2 had no fog of war: start with nothing explored. */
+function migrateV2(o: Record<string, unknown>): unknown {
+  return { ...o, version: 3, explored: {} };
+}
+
 /** Upgrades older save shapes to the current version, one step at a time. */
 export function migrate(o: unknown): unknown {
-  if (isObj(o) && o.version === 1) return migrateV1(o);
-  return o;
+  let cur = o;
+  if (isObj(cur) && cur.version === 1) cur = migrateV1(cur);
+  if (isObj(cur) && cur.version === 2) cur = migrateV2(cur);
+  return cur;
 }
 
 export function parseSave(raw: string): SaveData {

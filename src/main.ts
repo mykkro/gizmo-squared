@@ -6,6 +6,7 @@ import { Game } from './Game';
 import { Input } from './input/Input';
 import { Keyboard } from './input/keyboard';
 import { TouchJoystick } from './input/touchJoystick';
+import { Minimap } from './render/minimap';
 import { Renderer } from './render/Renderer';
 import { downloadSave, readSaveFile } from './save/fileio';
 import { getBrowserStore, loadSave, writeSave } from './save/storage';
@@ -29,6 +30,7 @@ const joystick = new TouchJoystick();
 joystick.attach(canvas, el('joy-base'), el('joy-knob'));
 const renderer = new Renderer(canvas);
 const game = new Game(renderer, hud, new Input(keyboard, joystick));
+const minimap = new Minimap(el('minimap'), el('minimap-panel'), el('map-button'));
 const debug = new DebugOverlay(el('debug'), new URLSearchParams(location.search).has('debug'));
 
 const resize = () =>
@@ -68,6 +70,13 @@ const loop = startLoop(
   },
   (frameSeconds, alpha) => {
     game.render(alpha);
+    minimap.update(
+      game.world,
+      game.explored,
+      game.player.tileX(),
+      game.player.tileY(),
+      performance.now(),
+    );
     if (frameSeconds > 0) fps = fps * 0.9 + (1 / frameSeconds) * 0.1;
     if (debug.visible) {
       const p = game.player;
@@ -117,7 +126,10 @@ const menu = new Menu(
 menu.setSeed(game.world.seedText);
 
 window.addEventListener('keydown', (e) => {
-  if (e.code === 'F3') {
+  if (e.target instanceof HTMLInputElement) return;
+  if (e.code === 'KeyM') {
+    minimap.toggle();
+  } else if (e.code === 'F3') {
     e.preventDefault();
     debug.toggle();
   } else if (e.code === 'KeyB' && debug.visible) {

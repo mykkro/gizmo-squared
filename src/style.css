@@ -83,6 +83,43 @@ body {
   cursor: pointer;
 }
 
+#map-button {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  right: calc(max(12px, env(safe-area-inset-right)) + 52px);
+  width: 44px;
+  height: 44px;
+  font-size: 22px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+#minimap-panel {
+  position: fixed;
+  top: calc(max(12px, env(safe-area-inset-top)) + 52px);
+  right: max(12px, env(safe-area-inset-right));
+  padding: 4px;
+  pointer-events: none;
+}
+
+#minimap {
+  display: block;
+  width: 160px;
+  height: 160px;
+  border-radius: 6px;
+  image-rendering: pixelated;
+}
+
+@media (max-width: 480px) {
+  #minimap {
+    width: 120px;
+    height: 120px;
+  }
+}
+
 #toast {
   position: fixed;
   top: 22%;

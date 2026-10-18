@@ -12,6 +12,7 @@ import { tickEnergy } from './systems/energy';
 import { unstick, updateMovement, type MovementEnv } from './systems/movement';
 import { collectItems } from './systems/pickups';
 import type { Hud } from './ui/hud';
+import { ExploredMap } from './world/explored';
 import { World } from './world/World';
 
 /** Camera looks slightly above the feet so Gizmo appears centred. */
@@ -26,7 +27,10 @@ export class Game {
   flyers: Flyer[] = [];
   time = 0;
   debugTint = false;
+  /** Fog of war: areas Gizmo has seen. */
+  explored = new ExploredMap();
   private env!: MovementEnv;
+  private revealedAt = { tx: NaN, ty: NaN };
 
   constructor(
     private readonly renderer: Renderer,
@@ -40,6 +44,7 @@ export class Game {
     const spawn = this.world.findSpawn();
     this.player.placeAtTile(spawn.tx, spawn.ty);
     this.discovery = createDiscoveryState();
+    this.explored = new ExploredMap();
     this.afterWorldChange();
   }
 
@@ -53,6 +58,7 @@ export class Game {
     this.player = p;
     unstick(p, this.world);
     this.discovery = createDiscoveryState(data.discoveredBiomes);
+    this.explored = ExploredMap.deserialize(data.explored);
     this.afterWorldChange();
   }
 
@@ -65,6 +71,7 @@ export class Game {
     this.flyers = [];
     this.renderer.setWorld(world);
     this.camera.snap(this.player.x, this.player.y - CAMERA_OFFSET_Y);
+    this.explored.reveal(this.player.tileX(), this.player.tileY());
   }
 
   update(dt: number): void {
@@ -72,7 +79,13 @@ export class Game {
     updateMovement(p, this.input.direction(), dt, this.env);
     tickEffects(p.effects, dt);
 
-    const biome = this.world.biomeAt(p.tileX(), p.tileY());
+    const tx = p.tileX();
+    const ty = p.tileY();
+    if (tx !== this.revealedAt.tx || ty !== this.revealedAt.ty) {
+      this.explored.reveal(tx, ty);
+      this.revealedAt = { tx, ty };
+    }
+    const biome = this.world.biomeAt(tx, ty);
     tickEnergy(p, dt, BIOMES[biome].effect);
 
     for (const ev of collectItems(p, this.world)) {
@@ -112,7 +125,7 @@ export class Game {
   toSaveData(): SaveData {
     const p = this.player;
     return {
-      version: 2,
+      version: 3,
       seed: this.world.seedText,
       player: {
         x: p.x,
@@ -123,6 +136,7 @@ export class Game {
       },
       discoveredBiomes: [...this.discovery.discovered],
       chunkDiffs: this.world.exportDiffs(),
+      explored: this.explored.serialize(),
     };
   }
 }
