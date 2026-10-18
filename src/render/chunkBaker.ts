@@ -1,21 +1,12 @@
 import { CHUNK_PX, CHUNK_SIZE, TILE_PX } from '../config';
-import { BLOCKS, blockById } from '../data/blocks';
+import { NO_BLOCK } from '../data/blocks';
 import { localIndex, type ChunkData } from '../world/chunk';
-import { parseHex, shade, type RGB } from './color';
+import { paintBlock } from './objects';
 import { fillTerrainRect, type TerrainLookup } from './terrainSurface';
 
 export type CanvasLike = OffscreenCanvas | HTMLCanvasElement;
 
-/** Last pixel row/column of a block's inset square (blocks leave a 1 px terrain margin). */
-const LAST = TILE_PX - 2;
 const GRID = CHUNK_SIZE + 2;
-
-const BLOCK_RGB: RGB[] = [];
-const BLOCK_EDGE_RGB: RGB[] = [];
-for (const b of BLOCKS) {
-  BLOCK_RGB[b.id] = parseHex(b.color);
-  BLOCK_EDGE_RGB[b.id] = shade(BLOCK_RGB[b.id], 0.7);
-}
 
 /**
  * Writes RGBA pixels for a whole chunk: blended, textured terrain, then blocks. `terrainAt`
@@ -46,18 +37,8 @@ export function fillChunkPixels(
 
   for (let ly = 0; ly < CHUNK_SIZE; ly++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      const block = blockById(chunk.block[localIndex(lx, ly)]);
-      if (!block) continue;
-      for (let py = 1; py <= LAST; py++) {
-        for (let px = 1; px <= LAST; px++) {
-          const edge = px === 1 || px === LAST || py === 1 || py === LAST;
-          const c = edge ? BLOCK_EDGE_RGB[block.id] : BLOCK_RGB[block.id];
-          const o = ((ly * TILE_PX + py) * CHUNK_PX + lx * TILE_PX + px) * 4;
-          out[o] = c[0];
-          out[o + 1] = c[1];
-          out[o + 2] = c[2];
-        }
-      }
+      const id = chunk.block[localIndex(lx, ly)];
+      if (id !== NO_BLOCK) paintBlock(id, out, lx * TILE_PX, ly * TILE_PX);
     }
   }
 }

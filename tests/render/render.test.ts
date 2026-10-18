@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CHUNK_PX, TILE_PX } from '../../src/config';
-import { BLOCKS, BLOCK_ID } from '../../src/data/blocks';
+import { BLOCK_ID } from '../../src/data/blocks';
 import { ITEM_KEYS } from '../../src/data/items';
 import { TERRAIN_INDEX } from '../../src/data/terrains';
 import { BakeCache } from '../../src/render/BakeCache';
@@ -70,9 +70,10 @@ describe('fillChunkPixels', () => {
     fillChunkPixels(chunk, () => TERRAIN_INDEX.grass, out);
 
     expect([out[0], out[1], out[2]]).toEqual(texel(TERRAIN_INDEX.grass, 0, 0));
-    const boulder = parseHex(BLOCKS[BLOCK_ID.boulder - 1].color);
-    const o = ((TILE_PX + 8) * CHUNK_PX + TILE_PX + 8) * 4;
-    expect([out[o], out[o + 1], out[o + 2]]).toEqual(boulder);
+    const o = ((TILE_PX + 16) * CHUNK_PX + TILE_PX + 16) * 4;
+    expect([out[o], out[o + 1], out[o + 2]]).not.toEqual(
+      texel(TERRAIN_INDEX.grass, TILE_PX + 16, TILE_PX + 16),
+    );
     for (let i = 3; i < out.length; i += 4) {
       if (out[i] !== 255) throw new Error(`alpha ${out[i]} at ${i}`);
     }

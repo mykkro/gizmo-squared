@@ -1,4 +1,5 @@
 import type { ItemKey } from '../data/items';
+import { parseHex } from './color';
 
 /** A pixel sprite: each char in `rows` is a palette key, '.' is transparent. */
 export interface PixelSprite {
@@ -36,24 +37,39 @@ export function spriteToCanvas(s: PixelSprite): HTMLCanvasElement {
   return canvas;
 }
 
-/** Palette key for the pixel whose centre is (x, y), or null for empty. */
-type Shape = (x: number, y: number) => string | null;
-
-const inEllipse = (x: number, y: number, cx: number, cy: number, rx: number, ry: number) =>
-  ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+/** Palette key at point (x, y) in sprite units, or null for empty. */
+export type Shape = (x: number, y: number) => string | null;
 
 /**
- * Rasterises a shape at pixel centres, then draws a 1 px outline around everything opaque.
- * `under` fills what is still empty afterwards (e.g. a soft drop shadow).
+ * A sprite defined by shapes in sprite units (w x h). It can be rasterised as pixel art
+ * (paintDef) or at any screen scale with anti-aliasing (rasterize).
  */
-function paint(
+export interface SpriteDef {
+  w: number;
+  h: number;
+  palette: Record<string, string>;
+  /** Palette key drawn in a 1-unit band around everything the shape covers. */
+  outline: string;
+  shape: Shape;
+  /** Fills what is still empty after the outline (e.g. a soft drop shadow). */
+  under?: Shape;
+}
+
+const def = (
   w: number,
   h: number,
   palette: Record<string, string>,
   outline: string,
   shape: Shape,
   under?: Shape,
-): PixelSprite {
+): SpriteDef => ({ w, h, palette, outline, shape, under });
+
+const inEllipse = (x: number, y: number, cx: number, cy: number, rx: number, ry: number) =>
+  ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+
+/** Rasterises a definition as pixel art: one sample per pixel centre, 1 px outline. */
+export function paintDef(d: SpriteDef): PixelSprite {
+  const { w, h, palette, outline, shape, under } = d;
   const grid = Array.from({ length: h }, (_, y) =>
     Array.from({ length: w }, (_, x) => shape(x + 0.5, y + 0.5)),
   );
@@ -143,17 +159,22 @@ function gizmoShape(legsApart: boolean, eyesOpen: boolean): Shape {
 const gizmoShadow: Shape = (x, y) => (inEllipse(x, y, 16, 29.6, 8.5, 1.6) ? 's' : null);
 
 const gizmo = (legsApart: boolean, eyesOpen: boolean) =>
-  paint(32, 32, GIZMO_PALETTE, 'k', gizmoShape(legsApart, eyesOpen), gizmoShadow);
+  def(32, 32, GIZMO_PALETTE, 'k', gizmoShape(legsApart, eyesOpen), gizmoShadow);
+
+export const GIZMO_DEFS = {
+  walk: [gizmo(false, true), gizmo(true, true)] as readonly SpriteDef[],
+  tired: gizmo(false, false),
+};
 
 /** Bottom row of Gizmo's feet; the renderer puts the row below it on the player's y. */
 export const GIZMO_FEET_ROW = 29;
-export const GIZMO_FRAMES: readonly PixelSprite[] = [gizmo(false, true), gizmo(true, true)];
-export const GIZMO_TIRED: PixelSprite = gizmo(false, false);
+export const GIZMO_FRAMES: readonly PixelSprite[] = GIZMO_DEFS.walk.map(paintDef);
+export const GIZMO_TIRED: PixelSprite = paintDef(GIZMO_DEFS.tired);
 
 // ---------------------------------------------------------------------------------------
 // Items (16 x 16)
 
-function berry(r: string, d: string, h: string, o: string, sparkle = false): PixelSprite {
+function berry(r: string, d: string, h: string, o: string, sparkle = false): SpriteDef {
   const shape: Shape = (x, y) => {
     if (inEllipse(x, y, 10.8, 2.6, 2.3, 1.1)) return 'l';
     if (Math.abs(x - 8) < 0.6 && y > 1.5 && y < 4.5) return 's';
@@ -162,18 +183,13 @@ function berry(r: string, d: string, h: string, o: string, sparkle = false): Pix
     return 0.6 * ((x - 8) / 5.6) + 0.8 * ((y - 9.5) / 5.4) > 0.45 ? 'd' : 'r';
   };
   const twinkle: Shape = (x, y) =>
-    sparkle && ((x === 1.5 && y === 2.5) || (x === 14.5 && y === 13.5)) ? 'y' : null;
-  return paint(
-    16,
-    16,
-    { l: '#3fa34d', s: '#6b4a26', y: '#fff8d0', r, d, h, o },
-    'o',
-    shape,
-    twinkle,
-  );
+    sparkle && (inEllipse(x, y, 1.5, 2.5, 0.7, 0.7) || inEllipse(x, y, 14.5, 13.5, 0.7, 0.7))
+      ? 'y'
+      : null;
+  return def(16, 16, { l: '#3fa34d', s: '#6b4a26', y: '#fff8d0', r, d, h, o }, 'o', shape, twinkle);
 }
 
-const zoomLeaf = paint(
+const zoomLeaf = def(
   16,
   16,
   { l: '#3fd0c9', d: '#1e8f8a', h: '#a6f2ec', o: '#0f4f4c' },
@@ -188,7 +204,7 @@ const zoomLeaf = paint(
   },
 );
 
-const magnetPetal = paint(
+const magnetPetal = def(
   16,
   16,
   { p: '#b46ee8', P: '#d9a8ff', y: '#ffe066', Y: '#fff6c4', o: '#4b2270' },
@@ -205,7 +221,7 @@ const magnetPetal = paint(
   },
 );
 
-const sapDrop = paint(
+const sapDrop = def(
   16,
   16,
   { a: '#d98a1c', b: '#a35f08', h: '#ffd28a', o: '#5a3304' },
@@ -219,7 +235,7 @@ const sapDrop = paint(
   },
 );
 
-export const ITEM_SPRITES: Record<ItemKey, PixelSprite> = {
+export const ITEM_DEFS: Record<ItemKey, SpriteDef> = {
   berry: berry('#e5484d', '#a3242a', '#ffb3b5', '#5a1418'),
   golden: berry('#f5b82e', '#b07a12', '#fff1b8', '#5c3d05', true),
   sour: berry('#9bd13b', '#5e8a1c', '#e2f7b5', '#2f4a0c'),
@@ -227,3 +243,82 @@ export const ITEM_SPRITES: Record<ItemKey, PixelSprite> = {
   magnet: magnetPetal,
   sap: sapDrop,
 };
+
+export const ITEM_SPRITES = Object.fromEntries(
+  Object.entries(ITEM_DEFS).map(([k, d]) => [k, paintDef(d)]),
+) as Record<ItemKey, PixelSprite>;
+
+// ---------------------------------------------------------------------------------------
+// HD rasteriser
+
+type RGBA = [number, number, number, number];
+
+/** Parses '#rgb', '#rrggbb' or 'rgba(r, g, b, a)'. */
+function parseColor(c: string): RGBA {
+  const m = /^rgba?\(([^)]+)\)$/.exec(c);
+  if (m) {
+    const [r, g, b, a = 1] = m[1].split(',').map(Number);
+    return [r, g, b, a];
+  }
+  const [r, g, b] = parseHex(c);
+  return [r, g, b, 1];
+}
+
+export interface RasterImage {
+  width: number;
+  height: number;
+  /** Straight (non-premultiplied) RGBA. */
+  data: Uint8ClampedArray;
+}
+
+const OUTLINE_DIRS = Array.from({ length: 8 }, (_, i) => [
+  Math.cos((i * Math.PI) / 4),
+  Math.sin((i * Math.PI) / 4),
+]);
+const SUB = 2;
+
+/** Palette key at a point, including the 1-unit outline band and the under-layer. */
+function keyAt(d: SpriteDef, x: number, y: number): string | null {
+  const k = d.shape(x, y);
+  if (k) return k;
+  for (const [dx, dy] of OUTLINE_DIRS) if (d.shape(x + dx, y + dy)) return d.outline;
+  return d.under?.(x, y) ?? null;
+}
+
+/**
+ * Rasterises a sprite at `scale` device pixels per sprite unit with 2x2 supersampling, so
+ * edges are anti-aliased and the outline stays about one sprite unit thick at any zoom.
+ */
+export function rasterize(d: SpriteDef, scale: number): RasterImage {
+  const width = Math.ceil(d.w * scale);
+  const height = Math.ceil(d.h * scale);
+  const colors = new Map(Object.entries(d.palette).map(([k, c]) => [k, parseColor(c)]));
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let py = 0; py < height; py++) {
+    for (let px = 0; px < width; px++) {
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let a = 0;
+      for (let sy = 0; sy < SUB; sy++) {
+        for (let sx = 0; sx < SUB; sx++) {
+          const key = keyAt(d, (px + (sx + 0.5) / SUB) / scale, (py + (sy + 0.5) / SUB) / scale);
+          const c = key ? colors.get(key) : undefined;
+          if (!c) continue;
+          r += c[0] * c[3];
+          g += c[1] * c[3];
+          b += c[2] * c[3];
+          a += c[3];
+        }
+      }
+      const o = (py * width + px) * 4;
+      if (a > 0) {
+        data[o] = r / a;
+        data[o + 1] = g / a;
+        data[o + 2] = b / a;
+        data[o + 3] = (a / (SUB * SUB)) * 255;
+      }
+    }
+  }
+  return { width, height, data };
+}
