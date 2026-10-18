@@ -1,12 +1,9 @@
 import { CHUNK_PX, TILE_PX } from '../config';
 import { blockById, type BlockKey } from '../data/blocks';
-import { parseHex, shade, type RGB } from './color';
-import { materialTexel } from './materials';
 import { rasterize, type RasterImage, type Shape, type SpriteDef } from './sprites';
 
 const inEllipse = (x: number, y: number, cx: number, cy: number, rx: number, ry: number) =>
   ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
-const css = ([r, g, b]: RGB) => `rgb(${r}, ${g}, ${b})`;
 const SHADOW = 'rgba(0, 0, 0, 0.25)';
 
 /** Light from the top-left: 'h' highlight, 'G' shade, else the base key. */
@@ -76,44 +73,36 @@ const cactus: SpriteDef = {
   under: (x, y) => (inEllipse(x, y, 17, 28.5, 8, 2.5) ? 's' : null),
 };
 
-/** A bevelled, rounded block in the given colour (building parts). */
-function brick(color: string): SpriteDef {
-  const base = parseHex(color);
-  return {
-    w: 32,
-    h: 32,
-    palette: {
-      b: css(base),
-      h: css(shade(base, 1.3)),
-      G: css(shade(base, 0.7)),
-      o: css(shade(base, 0.45)),
-    },
-    outline: 'o',
-    shape: (x, y) => {
-      const dx = Math.max(Math.abs(x - 16) - 10.5, 0);
-      const dy = Math.max(Math.abs(y - 16) - 10.5, 0);
-      if (dx * dx + dy * dy > 16) return null; // rounded rectangle, radius 4
-      if (x < 5 || y < 5) return 'h';
-      if (x > 27 || y > 27) return 'G';
-      return 'b';
-    },
-  };
-}
+/** A wooden chest with a curved lid and metal bands (not openable yet). */
+const chest: SpriteDef = {
+  w: 32,
+  h: 32,
+  palette: {
+    w: '#8a5a2c',
+    G: '#5e3b1b',
+    h: '#b07a42',
+    m: '#9a9a9a',
+    M: '#d8d8d8',
+    k: '#e0b84a',
+    o: '#2e1c0e',
+    s: SHADOW,
+  },
+  outline: 'o',
+  shape: (x, y) => {
+    const lid = inEllipse(x, y, 16, 13, 11, 6) && y < 14;
+    const box = x >= 5 && x <= 27 && y >= 13 && y <= 26;
+    if (!lid && !box) return null;
+    if (x >= 9 && x <= 11) return y < 13 ? 'M' : 'm'; // metal bands
+    if (x >= 21 && x <= 23) return y < 13 ? 'M' : 'm';
+    if (x >= 15 && x <= 17 && y >= 14 && y <= 18) return 'k'; // lock
+    if (y >= 13 && y <= 14) return 'G'; // lid seam
+    if (lid) return y < 10 ? 'h' : 'w';
+    return x > 25 ? 'G' : 'w';
+  },
+  under: (x, y) => (inEllipse(x, y, 17, 27.5, 13, 2.5) ? 's' : null),
+};
 
-/** Gives building blocks a stone-masonry surface (luminance of the stone material). */
-function masonry(img: RasterImage): void {
-  for (let y = 0; y < img.height; y++) {
-    for (let x = 0; x < img.width; x++) {
-      const o = (y * img.width + x) * 4;
-      if (img.data[o + 3] === 0) continue;
-      const [r, g, b] = materialTexel('stone', x, y);
-      const f = (r * 0.3 + g * 0.59 + b * 0.11) / 135;
-      for (let c = 0; c < 3; c++) img.data[o + c] = img.data[o + c] * f;
-    }
-  }
-}
-
-const SPECIAL: Partial<Record<BlockKey, SpriteDef>> = { tree, boulder, cactus };
+const SPECIAL: Record<BlockKey, SpriteDef> = { tree, boulder, cactus, chest };
 const images = new Map<number, RasterImage>();
 
 function blockImage(id: number): RasterImage | null {
@@ -121,9 +110,7 @@ function blockImage(id: number): RasterImage | null {
   if (!b) return null;
   let img = images.get(id);
   if (!img) {
-    const special = SPECIAL[b.key];
-    img = rasterize(special ?? brick(b.color), TILE_PX / 32);
-    if (!special) masonry(img);
+    img = rasterize(SPECIAL[b.key], TILE_PX / 32);
     images.set(id, img);
   }
   return img;

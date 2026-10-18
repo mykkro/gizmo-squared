@@ -1,10 +1,12 @@
 import { CHUNK_SIZE } from '../config';
 
-/** A building stamped into a chunk: BUILDINGS index and top-left local tile. */
+/** A building stamped into a chunk: BUILDINGS index, top-left local tile and its own seed. */
 export interface PlacedBuilding {
   index: number;
   ox: number;
   oy: number;
+  /** Deterministic per-building seed (e.g. the ruins wall layout). */
+  seed: number;
 }
 
 export interface ChunkData {

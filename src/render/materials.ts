@@ -16,6 +16,8 @@ export const MATERIALS = [
   'planks',
   'stone',
   'paving',
+  'marble',
+  'moss',
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 
@@ -50,6 +52,9 @@ const STONE = hex('#8a8680');
 const STONE_MORTAR = hex('#6e6a62');
 const PAVING = hex('#a8a29a');
 const PAVING_GAP = hex('#5a5650');
+const MARBLE = hex('#e9e4da');
+const VEIN = hex('#a9a39a');
+const MOSS = hex('#5f8a35');
 
 function generate(m: Material, mi: number, x: number, y: number): RGB {
   const u = x / MATERIAL_PX;
@@ -115,6 +120,23 @@ function generate(m: Material, mi: number, x: number, y: number): RGB {
       const lit = 1 - (c.ox + c.oy) * 0.18;
       return shade(STONE, (0.8 + 0.35 * c.id) * lit * grain(mi, x, y, 0.06));
     }
+    case 'marble': {
+      // Pale stone with soft grey veins along ridges of warped noise.
+      const ridge =
+        1 - Math.abs(2 * fbm(u + 0.3 * fbm(u, v, 4, 2, SEED + 17), v, 4, 4, SEED + 19) - 1);
+      const base = shade(
+        MARBLE,
+        (0.95 + 0.08 * fbm(u, v, 8, 3, SEED + 21)) * grain(mi, x, y, 0.025),
+      );
+      const t = Math.max(0, (ridge - 0.86) / 0.14);
+      return [
+        base[0] + (VEIN[0] - base[0]) * t,
+        base[1] + (VEIN[1] - base[1]) * t,
+        base[2] + (VEIN[2] - base[2]) * t,
+      ];
+    }
+    case 'moss':
+      return shade(MOSS, (0.7 + 0.5 * fbm(u, v, 16, 4, SEED + 23)) * grain(mi, x, y, 0.12));
     case 'paving': {
       const c = cellular(u, v, 4, SEED + 15);
       if (c.f2 - c.f1 < 0.06) return shade(PAVING_GAP, grain(mi, x, y, 0.08));

@@ -36,13 +36,14 @@ export function fillChunkPixels(
 
   fillTerrainRect(ox * TILE_PX, oy * TILE_PX, CHUNK_PX, CHUNK_PX, local, out, CHUNK_PX);
 
+  // Buildings first, so chests sit on ruin floors and trees overlap roof overhangs.
+  for (const b of chunk.buildings) paintBuilding(b, out);
   for (let ly = 0; ly < CHUNK_SIZE; ly++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const id = chunk.block[localIndex(lx, ly)];
       if (id !== NO_BLOCK) paintBlock(id, out, lx * TILE_PX, ly * TILE_PX);
     }
   }
-  for (const b of chunk.buildings) paintBuilding(b, out);
 }
 
 export function createCanvas(w: number, h: number): CanvasLike {

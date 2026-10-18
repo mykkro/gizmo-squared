@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CHUNK_SIZE } from '../../src/config';
 import { BIOMES, BIOME_INDEX } from '../../src/data/biomes';
 import { BLOCKS, BLOCK_ID, NO_BLOCK, blockById } from '../../src/data/blocks';
-import { BLUEPRINT_CHARS, BUILDINGS } from '../../src/data/buildings';
+import { BUILDINGS, BUILDING_STYLES } from '../../src/data/buildings';
 import { ITEMS, ITEM_ID, NO_ITEM, itemById } from '../../src/data/items';
 import { TERRAINS, TERRAIN_INDEX, type TerrainKey } from '../../src/data/terrains';
 
@@ -67,43 +67,29 @@ describe('items and blocks', () => {
 });
 
 describe('buildings', () => {
-  it('blueprints are rectangular, fit in a chunk and use known characters', () => {
+  it('have a style and a footprint that fits a chunk with a one-tile margin', () => {
     for (const b of BUILDINGS) {
-      const w = b.blueprint[0].length;
-      expect(w).toBeLessThanOrEqual(CHUNK_SIZE);
-      expect(b.blueprint.length).toBeLessThanOrEqual(CHUNK_SIZE);
-      for (const row of b.blueprint) {
-        expect(row.length, b.name).toBe(w);
-        for (const ch of row) {
-          expect(ch === ' ' || ch in BLUEPRINT_CHARS, `${b.name} '${ch}'`).toBe(true);
-        }
-      }
+      expect(BUILDING_STYLES, b.name).toContain(b.style);
+      expect(b.w, b.name).toBeGreaterThan(0);
+      expect(b.h, b.name).toBeGreaterThan(0);
+      expect(b.w, b.name).toBeLessThanOrEqual(CHUNK_SIZE - 2);
+      expect(b.h, b.name).toBeLessThanOrEqual(CHUNK_SIZE - 2);
     }
   });
 
-  it('blueprint characters map to brick blocks', () => {
-    for (const key of Object.values(BLUEPRINT_CHARS)) {
-      if (key === null) continue;
-      expect(blockById(BLOCK_ID[key])?.kind, key).toBe('brick');
+  it('houses have roof and wall materials', () => {
+    for (const b of BUILDINGS.filter((x) => x.style === 'house')) {
+      expect(b.roof, b.name).toBeDefined();
+      expect(b.wall, b.name).toBeDefined();
     }
   });
-});
 
-describe('building styles', () => {
-  it('houses have a roof and wall material; open structures have neither', () => {
-    for (const b of BUILDINGS) {
-      if (b.kind === 'house') {
-        expect(b.roof, b.name).toBeDefined();
-        expect(b.wall, b.name).toBeDefined();
-      } else {
-        expect(b.roof, b.name).toBeUndefined();
-        expect(b.wall, b.name).toBeUndefined();
-      }
-    }
-    expect(
-      BUILDINGS.filter((b) => b.kind === 'open')
-        .map((b) => b.name)
-        .sort(),
-    ).toEqual(['shrine', 'temple']);
+  it('include every landmark style', () => {
+    expect(new Set(BUILDINGS.map((b) => b.style))).toEqual(new Set(BUILDING_STYLES));
+  });
+
+  it('leave only solid obstacle props as blocks (no old building bricks)', () => {
+    for (const b of BLOCKS) expect(b.kind, b.key).toBe('obstacle');
+    expect(BLOCKS.map((b) => b.key).sort()).toEqual(['boulder', 'cactus', 'chest', 'tree']);
   });
 });

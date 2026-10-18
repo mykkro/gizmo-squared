@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { CHUNK_SIZE } from '../../src/config';
-import { NO_BLOCK, blockById } from '../../src/data/blocks';
+import { BLOCK_ID, NO_BLOCK, blockById } from '../../src/data/blocks';
 import { BUILDINGS } from '../../src/data/buildings';
 import { NO_ITEM } from '../../src/data/items';
 import { localIndex, tileToChunk, tileToLocal } from '../../src/world/chunk';
 import { WorldGenerator } from '../../src/world/generator';
+import { ruinsWallMask } from '../../src/world/structures';
 
 const SEED = 123456;
 const LAYERS = ['terrain', 'biome', 'item', 'block', 'solid'] as const;
@@ -108,7 +109,7 @@ describe('WorldGenerator', () => {
     let found = false;
     for (let cy = -6; cy < 6 && !found; cy++) {
       for (let cx = -6; cx < 6 && !found; cx++) {
-        found = g.generateChunk(cx, cy).block.some((b) => blockById(b)?.kind === 'brick');
+        found = g.generateChunk(cx, cy).buildings.length > 0;
       }
     }
     expect(found).toBe(true);
@@ -131,32 +132,78 @@ describe('WorldGenerator', () => {
 });
 
 describe('placed buildings', () => {
-  it('are recorded inside the chunk with a one-tile margin, with solid house footprints', () => {
+  it('keep a one-tile margin and have the right collision for their style', () => {
     const g = new WorldGenerator(SEED);
-    let houses = 0;
-    for (let cy = -6; cy < 6; cy++) {
-      for (let cx = -6; cx < 6; cx++) {
+    const styles = new Set<string>();
+    for (let cy = -10; cy < 10; cy++) {
+      for (let cx = -10; cx < 10; cx++) {
         const c = g.generateChunk(cx, cy);
         for (const b of c.buildings) {
           const def = BUILDINGS[b.index];
-          const w = def.blueprint[0].length;
-          const h = def.blueprint.length;
+          styles.add(def.style);
           // One-tile margin, so roof overhang and drop shadow stay inside this chunk.
           expect(b.ox).toBeGreaterThanOrEqual(1);
           expect(b.oy).toBeGreaterThanOrEqual(1);
-          expect(b.ox + w).toBeLessThanOrEqual(CHUNK_SIZE - 1);
-          expect(b.oy + h).toBeLessThanOrEqual(CHUNK_SIZE - 1);
-          if (def.kind !== 'house') continue;
-          houses++;
-          for (let y = 0; y < h; y++) {
-            for (let x = 0; x < w; x++) {
-              expect(c.solid[localIndex(b.ox + x, b.oy + y)]).toBe(1);
-              expect(c.item[localIndex(b.ox + x, b.oy + y)]).toBe(NO_ITEM);
+          expect(b.ox + def.w).toBeLessThanOrEqual(CHUNK_SIZE - 1);
+          expect(b.oy + def.h).toBeLessThanOrEqual(CHUNK_SIZE - 1);
+          const walls = def.style === 'ruins' ? ruinsWallMask(b.seed, def.w, def.h) : null;
+          for (let y = 0; y < def.h; y++) {
+            for (let x = 0; x < def.w; x++) {
+              const i = localIndex(b.ox + x, b.oy + y);
+              const solid = c.solid[i];
+              // Ruins: walls are solid, the floor is walkable except where a chest stands.
+              if (walls)
+                expect(solid).toBe(walls[y * def.w + x] || c.block[i] === BLOCK_ID.chest ? 1 : 0);
+              else if (def.style === 'temple' && y === def.h - 1) expect(solid).toBe(0);
+              else expect(solid).toBe(1);
             }
           }
         }
       }
     }
-    expect(houses).toBeGreaterThan(0);
+    expect(styles.size).toBeGreaterThanOrEqual(4);
+  });
+});
+
+describe('ruinsWallMask', () => {
+  it('is deterministic: broken outer walls, an entrance, at most a short inner wall', () => {
+    const [w, h] = [7, 7];
+    const m = ruinsWallMask(1234, w, h);
+    expect(m).toEqual(ruinsWallMask(1234, w, h));
+    let walls = 0;
+    let gaps = 0;
+    let inner = 0;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const edge = x === 0 || y === 0 || x === w - 1 || y === h - 1;
+        if (!edge) inner += m[y * w + x];
+        else if (m[y * w + x]) walls++;
+        else gaps++;
+      }
+    }
+    expect(walls).toBeGreaterThan(10);
+    expect(gaps).toBeGreaterThan(1);
+    expect(m[(h - 1) * w + (w >> 1)]).toBe(0); // entrance
+    expect(m[(h - 2) * w + (w >> 1)]).toBe(0); // the tile inside the entrance is open
+    expect(inner).toBeLessThanOrEqual(2);
+  });
+});
+
+describe('ruins contents', () => {
+  it('chests spawn inside ruins (on walkable floor tiles, solid)', () => {
+    const g = new WorldGenerator(SEED);
+    let chests = 0;
+    for (let cy = -12; cy < 12; cy++) {
+      for (let cx = -12; cx < 12; cx++) {
+        const c = g.generateChunk(cx, cy);
+        for (let i = 0; i < c.block.length; i++) {
+          if (c.block[i] === BLOCK_ID.chest) {
+            chests++;
+            expect(c.solid[i]).toBe(1);
+          }
+        }
+      }
+    }
+    expect(chests).toBeGreaterThan(0);
   });
 });
