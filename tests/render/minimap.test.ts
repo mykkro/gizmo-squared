@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { TERRAINS, TERRAIN_INDEX } from '../../src/data/terrains';
-import { parseHex } from '../../src/render/color';
+import { TERRAIN_INDEX } from '../../src/data/terrains';
+import { averageRGB } from '../../src/render/textures';
 import {
   BLOCK_PX,
   FOG_RGB,
@@ -43,8 +43,8 @@ describe('MinimapModel', () => {
     const out = new Uint8ClampedArray(MAP_PX * MAP_PX * 4);
     composeAll(m, 0, 0, out);
     const c = MAP_PX / 2;
-    expect(pixel(out, c + 1, c)).toEqual(parseHex(TERRAINS[GRASS].color));
-    expect(pixel(out, c - 2, c)).toEqual(parseHex(TERRAINS[WATER].color));
+    expect(pixel(out, c + 1, c)).toEqual(averageRGB(GRASS));
+    expect(pixel(out, c - 2, c)).toEqual(averageRGB(WATER));
     expect(pixel(out, c + 40, c)).toEqual(FOG_RGB);
   });
 
@@ -55,7 +55,7 @@ describe('MinimapModel', () => {
     const out = new Uint8ClampedArray(MAP_PX * MAP_PX * 4);
     m.compose(0, 0, out);
     const c = MAP_PX / 2;
-    expect(pixel(out, c + 1, c)).toEqual(parseHex(TERRAINS[GRASS].color));
+    expect(pixel(out, c + 1, c)).toEqual(averageRGB(GRASS));
   });
 
   it('builds at most one block per compose call', () => {
@@ -77,7 +77,7 @@ describe('MinimapModel', () => {
   });
 
   it('covers TILES_PER_MAP_PX tiles per map pixel', () => {
-    expect(TILES_PER_MAP_PX).toBe(2);
-    expect(MAP_PX * TILES_PER_MAP_PX).toBe(320);
+    expect(TILES_PER_MAP_PX).toBe(1);
+    expect(MAP_PX * TILES_PER_MAP_PX).toBe(160);
   });
 });

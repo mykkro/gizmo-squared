@@ -2,12 +2,13 @@ import { LruCache } from '../core/lru';
 import { TERRAINS } from '../data/terrains';
 import type { ExploredMap } from '../world/explored';
 import type { World } from '../world/World';
-import { parseHex, type RGB } from './color';
+import type { RGB } from './color';
+import { averageRGB } from './textures';
 
 /** Minimap size in map pixels (square). */
 export const MAP_PX = 160;
 /** World tiles covered by one map pixel (one sample per pixel). */
-export const TILES_PER_MAP_PX = 2;
+export const TILES_PER_MAP_PX = 1;
 /** Map pixels per cached block side. */
 export const BLOCK_PX = 32;
 /** Colour of unexplored areas. */
@@ -15,7 +16,8 @@ export const FOG_RGB: RGB = [20, 24, 28];
 
 const BLOCK_CACHE_LIMIT = 64;
 const BLOCKS_PER_COMPOSE = 1;
-const TERRAIN_RGB: RGB[] = TERRAINS.map((t) => parseHex(t.color));
+/** Average colour of each terrain texture, so the map matches the main view. */
+const TERRAIN_RGB: RGB[] = TERRAINS.map((_, i) => averageRGB(i));
 
 /** Terrain index of a world tile. */
 export type TerrainSampler = (tx: number, ty: number) => number;

@@ -91,8 +91,8 @@ const loop = startLoop(
         biome: BIOMES[game.world.biomeAt(tx, ty)].name,
         climate: `e ${cl.elevation.toFixed(2)} t ${cl.temperature.toFixed(2)} m ${cl.moisture.toFixed(2)} l ${cl.landmark.toFixed(2)}`,
         chunks: game.world.loadedChunkCount,
-        baked: `${r.bakedCanvases} (+${r.bakesThisFrame} this frame)`,
-        zoom: renderer.zoom,
+        baked: `${r.bakedCanvases} (+${r.bakesThisFrame} this frame, last ${renderer.lastBakeMs.toFixed(1)} ms)`,
+        zoom: renderer.zoom.toFixed(2),
         tint: game.debugTint ? 'on (B)' : 'off (B)',
       });
     }
