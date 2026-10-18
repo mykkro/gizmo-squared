@@ -1,0 +1,104 @@
+import { describe, expect, it } from 'vitest';
+import { CHUNK_PX, TILE_PX } from '../../src/config';
+import { BLOCKS, BLOCK_ID } from '../../src/data/blocks';
+import { ITEM_KEYS } from '../../src/data/items';
+import { TERRAINS, TERRAIN_INDEX } from '../../src/data/terrains';
+import { BakeCache } from '../../src/render/BakeCache';
+import { Camera, computeZoom } from '../../src/render/camera';
+import { fillChunkPixels, type CanvasLike } from '../../src/render/chunkBaker';
+import { parseHex, shade } from '../../src/render/color';
+import { GIZMO_FRAMES, GIZMO_TIRED, ITEM_SPRITES, spriteErrors } from '../../src/render/sprites';
+import { createChunkData, localIndex } from '../../src/world/chunk';
+
+describe('color', () => {
+  it('parses short and long hex', () => {
+    expect(parseHex('#fff')).toEqual([255, 255, 255]);
+    expect(parseHex('#4fa836')).toEqual([0x4f, 0xa8, 0x36]);
+  });
+
+  it('shades and clamps', () => {
+    expect(shade([100, 200, 250], 0.5)).toEqual([50, 100, 125]);
+    expect(shade([200, 200, 200], 2)).toEqual([255, 255, 255]);
+  });
+});
+
+describe('camera', () => {
+  it('chooses an integer zoom showing at least 14 tiles on the short side', () => {
+    expect(computeZoom(1080)).toBe(4);
+    expect(computeZoom(1170)).toBe(5);
+    expect(computeZoom(300)).toBe(2);
+    for (const side of [720, 900, 1080, 1440, 2160]) {
+      expect(side / (TILE_PX * computeZoom(side))).toBeGreaterThanOrEqual(14);
+    }
+  });
+
+  it('follows its target smoothly and converges', () => {
+    const c = new Camera();
+    c.follow(100, 50, 1 / 60);
+    expect(c.x).toBeGreaterThan(0);
+    expect(c.x).toBeLessThan(100);
+    for (let i = 0; i < 300; i++) c.follow(100, 50, 1 / 60);
+    expect(c.x).toBeCloseTo(100, 1);
+    expect(c.y).toBeCloseTo(50, 1);
+  });
+});
+
+describe('sprites', () => {
+  it('are well-formed', () => {
+    for (const s of [...GIZMO_FRAMES, GIZMO_TIRED]) expect(spriteErrors(s)).toEqual([]);
+    for (const key of ITEM_KEYS) expect(spriteErrors(ITEM_SPRITES[key]), key).toEqual([]);
+  });
+});
+
+describe('fillChunkPixels', () => {
+  it('paints terrain with slight shade variation and blocks with their colour', () => {
+    const chunk = createChunkData(0, 0);
+    chunk.terrain.fill(TERRAIN_INDEX.grass);
+    chunk.block[localIndex(1, 1)] = BLOCK_ID.boulder;
+    const out = new Uint8ClampedArray(CHUNK_PX * CHUNK_PX * 4);
+    fillChunkPixels(chunk, 42, out);
+
+    const grass = parseHex(TERRAINS[TERRAIN_INDEX.grass].color);
+    for (let c = 0; c < 3; c++) {
+      expect(Math.abs(out[c] - grass[c])).toBeLessThanOrEqual(Math.ceil(grass[c] * 0.04) + 1);
+    }
+    const boulder = parseHex(BLOCKS[BLOCK_ID.boulder - 1].color);
+    const o = ((TILE_PX + 8) * CHUNK_PX + TILE_PX + 8) * 4;
+    expect([out[o], out[o + 1], out[o + 2]]).toEqual(boulder);
+    for (let i = 3; i < out.length; i += 4) {
+      if (out[i] !== 255) throw new Error(`alpha ${out[i]} at ${i}`);
+    }
+  });
+});
+
+describe('BakeCache', () => {
+  it('respects the per-frame budget and serves cache hits for free', () => {
+    let bakes = 0;
+    const cache = new BakeCache(
+      () => {
+        bakes++;
+        return {} as CanvasLike;
+      },
+      32,
+      2,
+    );
+    const chunks = [0, 1, 2].map((i) => createChunkData(i, 0));
+    cache.beginFrame();
+    expect(cache.get(chunks[0])).toBeDefined();
+    expect(cache.get(chunks[1])).toBeDefined();
+    expect(cache.get(chunks[2])).toBeUndefined();
+    expect(cache.get(chunks[0])).toBeDefined();
+    expect(bakes).toBe(2);
+    expect(cache.bakesThisFrame).toBe(2);
+    cache.beginFrame();
+    expect(cache.get(chunks[2])).toBeDefined();
+    expect(bakes).toBe(3);
+  });
+
+  it('evicts least recently used canvases', () => {
+    const cache = new BakeCache(() => ({}) as CanvasLike, 2, 10);
+    cache.beginFrame();
+    for (let i = 0; i < 3; i++) cache.get(createChunkData(i, 0));
+    expect(cache.size).toBe(2);
+  });
+});

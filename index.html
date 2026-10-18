@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="theme-color" content="#1b1f24" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='2' y='3' width='12' height='10' rx='3' fill='%235fd16b' stroke='%231d2b2a'/%3E%3Crect x='5' y='6' width='2' height='2' fill='%231d2b2a'/%3E%3Crect x='9' y='6' width='2' height='2' fill='%231d2b2a'/%3E%3C/svg%3E"
+    />
+    <title>Gizmo's World</title>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="hud">
+      <div class="panel">
+        <div id="energy-bar" role="meter" aria-label="Energy">
+          <div id="energy-fill"></div>
+        </div>
+        <div id="treasures">Treasures: 0</div>
+        <div id="effects"></div>
+        <div id="tired-hint" hidden>Gizmo is tired — find a berry!</div>
+      </div>
+    </div>
+
+    <button id="menu-button" aria-label="Menu">☰</button>
+    <div id="toast">
+      <div id="toast-title"></div>
+      <div id="toast-sub"></div>
+    </div>
+    <div id="notice" class="panel" hidden></div>
+    <div id="joy-base" hidden></div>
+    <div id="joy-knob" hidden></div>
+    <pre id="debug" hidden></pre>
+
+    <dialog id="menu">
+      <h2>Gizmo's World</h2>
+      <p id="menu-seed"></p>
+      <label for="seed-input">World seed</label>
+      <input id="seed-input" placeholder="leave empty for random" maxlength="40" />
+      <button id="new-world">New world</button>
+      <button id="export-save">Export save</button>
+      <label class="button" for="import-save">Import save</label>
+      <input id="import-save" type="file" accept="application/json,.json" hidden />
+      <button id="sound-toggle" disabled>Sound: coming soon</button>
+      <p id="storage-warning" hidden>Saving isn't available in this browser mode.</p>
+      <button id="close-menu">Close</button>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
