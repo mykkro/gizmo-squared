@@ -1,5 +1,6 @@
 import { TILE_PX } from '../config';
 import type { RGB } from './color';
+import { makeFractalNoise } from '../core/noise';
 import { fbm } from './texnoise';
 import { TEX_PX, getTexture } from './textures';
 
@@ -23,8 +24,28 @@ function ensureNoise(): void {
   }
 }
 
+/** World-scale variation: about 8-tile features, brightness within ±10%. */
+const macroNoise = makeFractalNoise(7777, { scale: 8, octaves: 2 });
+const macroAt = (tx: number, ty: number) => 1 + 0.2 * (macroNoise(tx, ty) - 0.5);
+
+/** Writes a colour scaled by the world-scale factor m, with a slight warm / cool shift. */
+function put(out: Uint8ClampedArray, o: number, r: number, g: number, b: number, m: number) {
+  const k = (m - 1) * 0.6;
+  out[o] = r * m * (1 + k);
+  out[o + 1] = g * m;
+  out[o + 2] = b * m * (1 - k);
+}
+
+/** Bilinear world-scale factor of the current cell at (fx, fy). */
+const macroFactor = (fx: number, fy: number) =>
+  (cell.m00 * (1 - fx) + cell.m10 * fx) * (1 - fy) + (cell.m01 * (1 - fx) + cell.m11 * fx) * fy;
+
 /** The current blend cell: the four tiles around a square between tile centres. */
 const cell = {
+  m00: 1,
+  m10: 1,
+  m01: 1,
+  m11: 1,
   uniform: true,
   n: 0,
   tex: [] as Uint8ClampedArray[],
@@ -37,8 +58,19 @@ const cell = {
 const w = new Float64Array(4);
 
 /** Resolves textures, de-duplicated terrains and noise offsets once per cell. */
-function prepareCell(t00: number, t10: number, t01: number, t11: number): void {
+function prepareCell(
+  t00: number,
+  t10: number,
+  t01: number,
+  t11: number,
+  tx: number,
+  ty: number,
+): void {
   ensureNoise();
+  cell.m00 = macroAt(tx, ty);
+  cell.m10 = macroAt(tx + 1, ty);
+  cell.m01 = macroAt(tx, ty + 1);
+  cell.m11 = macroAt(tx + 1, ty + 1);
   cell.uniform = t00 === t10 && t00 === t01 && t00 === t11;
   cell.n = 0;
   const corners = [t00, t10, t01, t11];
@@ -69,9 +101,7 @@ function blendCellPixel(
   const ti = ((wy & MASK) * TEX_PX + (wx & MASK)) * 3;
   if (cell.uniform) {
     const tex = cell.tex[0];
-    out[o] = tex[ti];
-    out[o + 1] = tex[ti + 1];
-    out[o + 2] = tex[ti + 2];
+    put(out, o, tex[ti], tex[ti + 1], tex[ti + 2], macroFactor(fx, fy));
     return;
   }
   const n = cell.n;
@@ -99,9 +129,7 @@ function blendCellPixel(
     g += tex[ti + 1] * f;
     b += tex[ti + 2] * f;
   }
-  out[o] = r;
-  out[o + 1] = g;
-  out[o + 2] = b;
+  put(out, o, r, g, b, macroFactor(fx, fy));
 }
 
 /** Fractional position of a world pixel between tile centres: [tile, fraction]. */
@@ -130,6 +158,8 @@ export function writeTerrainColor(
     terrainAt(tx + 1, ty),
     terrainAt(tx, ty + 1),
     terrainAt(tx + 1, ty + 1),
+    tx,
+    ty,
   );
   blendCellPixel(wx, wy, fx, fy, out, o);
 }
@@ -166,19 +196,21 @@ export function fillTerrainRect(
         terrainAt(cx + 1, cy),
         terrainAt(cx, cy + 1),
         terrainAt(cx + 1, cy + 1),
+        cx,
+        cy,
       );
       if (cell.uniform) {
-        // Fast path: straight texture copy.
+        // Fast path: texture copy (with world-scale variation).
         const tex = cell.tex[0];
         for (let wy = ya; wy < yb; wy++) {
+          const fy = (wy + 0.5) / TILE_PX - 0.5 - cy;
           const row = (wy - wy0) * stride;
           const trow = (wy & MASK) * TEX_PX;
           for (let wx = xa; wx < xb; wx++) {
             const o = (row + (wx - wx0)) * 4;
             const ti = (trow + (wx & MASK)) * 3;
-            out[o] = tex[ti];
-            out[o + 1] = tex[ti + 1];
-            out[o + 2] = tex[ti + 2];
+            const m = macroFactor((wx + 0.5) / TILE_PX - 0.5 - cx, fy);
+            put(out, o, tex[ti], tex[ti + 1], tex[ti + 2], m);
             out[o + 3] = 255;
           }
         }

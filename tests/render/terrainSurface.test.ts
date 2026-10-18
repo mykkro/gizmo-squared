@@ -3,7 +3,7 @@ import { CHUNK_PX, CHUNK_SIZE, TILE_PX } from '../../src/config';
 import { TERRAIN_INDEX } from '../../src/data/terrains';
 import { fillChunkPixels } from '../../src/render/chunkBaker';
 import { terrainColorAt } from '../../src/render/terrainSurface';
-import { texel } from '../../src/render/textures';
+import { TEX_PX, texel } from '../../src/render/textures';
 import { WorldGenerator } from '../../src/world/generator';
 
 const G = TERRAIN_INDEX.grass;
@@ -11,17 +11,34 @@ const S = TERRAIN_INDEX.sand;
 const half = (tx: number) => (tx < 0 ? S : G);
 
 describe('terrain surface', () => {
-  it('uniform areas are the plain texture', () => {
-    expect(terrainColorAt(200, 200, () => G)).toEqual(texel(G, 200, 200));
+  it('uniform areas are the texture, gently tinted by world-scale variation', () => {
+    let differs = 0;
+    for (let i = 0; i < 40; i++) {
+      const wx = 37 * i * TILE_PX;
+      const c = terrainColorAt(wx, 200, () => G);
+      const t = texel(G, wx, 200);
+      for (let k = 0; k < 3; k++)
+        expect(Math.abs(c[k] - t[k])).toBeLessThanOrEqual(t[k] * 0.15 + 2);
+      if (c.join() !== t.join()) differs++;
+    }
+    expect(differs).toBeGreaterThan(20);
+  });
+
+  it('the same texel several textures apart looks different (no visible repeats)', () => {
+    expect(terrainColorAt(10, 10, () => G)).not.toEqual(
+      terrainColorAt(10 + 3 * TEX_PX, 10, () => G),
+    );
   });
 
   it('pure on each side, mixed near the border', () => {
-    expect(terrainColorAt(3 * TILE_PX, 10, half)).toEqual(texel(G, 3 * TILE_PX, 10));
-    expect(terrainColorAt(-3 * TILE_PX, 10, half)).toEqual(texel(S, -3 * TILE_PX, 10));
+    const uniG = (x: number, y: number) => terrainColorAt(x, y, () => G).join();
+    const uniS = (x: number, y: number) => terrainColorAt(x, y, () => S).join();
+    expect(terrainColorAt(3 * TILE_PX, 10, half).join()).toBe(uniG(3 * TILE_PX, 10));
+    expect(terrainColorAt(-3 * TILE_PX, 10, half).join()).toBe(uniS(-3 * TILE_PX, 10));
     let mixed = 0;
     for (let y = 0; y < 256; y++) {
-      const c = terrainColorAt(0, y, half);
-      if (c.join() !== texel(G, 0, y).join() && c.join() !== texel(S, 0, y).join()) mixed++;
+      const c = terrainColorAt(0, y, half).join();
+      if (c !== uniG(0, y) && c !== uniS(0, y)) mixed++;
     }
     expect(mixed).toBeGreaterThan(64);
   });

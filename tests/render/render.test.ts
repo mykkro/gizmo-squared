@@ -7,6 +7,7 @@ import { BakeCache } from '../../src/render/BakeCache';
 import { Camera, chunkRect, computeZoom, spanRect } from '../../src/render/camera';
 import { fillChunkPixels, type CanvasLike } from '../../src/render/chunkBaker';
 import { parseHex, shade } from '../../src/render/color';
+import { terrainColorAt } from '../../src/render/terrainSurface';
 import { texel } from '../../src/render/textures';
 import { GIZMO_FRAMES, GIZMO_TIRED, ITEM_SPRITES, spriteErrors } from '../../src/render/sprites';
 import { createChunkData, localIndex } from '../../src/world/chunk';
@@ -82,7 +83,7 @@ describe('fillChunkPixels', () => {
     const out = new Uint8ClampedArray(CHUNK_PX * CHUNK_PX * 4);
     fillChunkPixels(chunk, () => TERRAIN_INDEX.grass, out);
 
-    expect([out[0], out[1], out[2]]).toEqual(texel(TERRAIN_INDEX.grass, 0, 0));
+    expect([out[0], out[1], out[2]]).toEqual(terrainColorAt(0, 0, () => TERRAIN_INDEX.grass));
     const o = ((TILE_PX + 16) * CHUNK_PX + TILE_PX + 16) * 4;
     expect([out[o], out[o + 1], out[o + 2]]).not.toEqual(
       texel(TERRAIN_INDEX.grass, TILE_PX + 16, TILE_PX + 16),
