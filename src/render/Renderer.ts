@@ -49,7 +49,8 @@ export class Renderer {
 
   setWorld(world: World): void {
     this.world = world;
-    this.bakes = new BakeCache((chunk) => bakeChunk(chunk, world.seed));
+    const terrainAt = (tx: number, ty: number) => world.generator.sampleTile(tx, ty).terrain;
+    this.bakes = new BakeCache((chunk) => bakeChunk(chunk, terrainAt));
   }
 
   resize(cssW: number, cssH: number, dpr: number): void {

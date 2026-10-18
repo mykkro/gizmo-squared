@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { CHUNK_PX, TILE_PX } from '../../src/config';
 import { BLOCKS, BLOCK_ID } from '../../src/data/blocks';
 import { ITEM_KEYS } from '../../src/data/items';
-import { TERRAINS, TERRAIN_INDEX } from '../../src/data/terrains';
+import { TERRAIN_INDEX } from '../../src/data/terrains';
 import { BakeCache } from '../../src/render/BakeCache';
 import { Camera, computeZoom } from '../../src/render/camera';
 import { fillChunkPixels, type CanvasLike } from '../../src/render/chunkBaker';
 import { parseHex, shade } from '../../src/render/color';
+import { texel } from '../../src/render/textures';
 import { GIZMO_FRAMES, GIZMO_TIRED, ITEM_SPRITES, spriteErrors } from '../../src/render/sprites';
 import { createChunkData, localIndex } from '../../src/world/chunk';
 
@@ -61,17 +62,14 @@ describe('sprites', () => {
 });
 
 describe('fillChunkPixels', () => {
-  it('paints terrain with slight shade variation and blocks with their colour', () => {
+  it('paints the terrain texture and blocks with their colour', () => {
     const chunk = createChunkData(0, 0);
     chunk.terrain.fill(TERRAIN_INDEX.grass);
     chunk.block[localIndex(1, 1)] = BLOCK_ID.boulder;
     const out = new Uint8ClampedArray(CHUNK_PX * CHUNK_PX * 4);
-    fillChunkPixels(chunk, 42, out);
+    fillChunkPixels(chunk, () => TERRAIN_INDEX.grass, out);
 
-    const grass = parseHex(TERRAINS[TERRAIN_INDEX.grass].color);
-    for (let c = 0; c < 3; c++) {
-      expect(Math.abs(out[c] - grass[c])).toBeLessThanOrEqual(Math.ceil(grass[c] * 0.04) + 1);
-    }
+    expect([out[0], out[1], out[2]]).toEqual(texel(TERRAIN_INDEX.grass, 0, 0));
     const boulder = parseHex(BLOCKS[BLOCK_ID.boulder - 1].color);
     const o = ((TILE_PX + 8) * CHUNK_PX + TILE_PX + 8) * 4;
     expect([out[o], out[o + 1], out[o + 2]]).toEqual(boulder);

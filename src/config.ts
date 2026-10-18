@@ -16,7 +16,7 @@ export const MAGNET_RADIUS_TILES = 4;
 
 export const CHUNK_CACHE_LIMIT = 256;
 export const BAKED_CACHE_LIMIT = 32;
-export const BAKES_PER_FRAME = 2;
+export const BAKES_PER_FRAME = 1;
 export const PREFETCH_GENERATIONS_PER_FRAME = 1;
 
 export const TARGET_TILES_SHORT_SIDE = 14;
