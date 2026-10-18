@@ -2,7 +2,7 @@ import { LruCache } from '../core/lru';
 import type { ExploredMap } from '../world/explored';
 import type { World } from '../world/World';
 import type { RGB } from './color';
-import { averageRGB } from './textures';
+import { approxRGB } from './textures';
 
 /** Minimap size in map pixels (square). */
 export const MAP_PX = 160;
@@ -15,8 +15,8 @@ export const FOG_RGB: RGB = [20, 24, 28];
 
 const BLOCK_CACHE_LIMIT = 64;
 const BLOCKS_PER_COMPOSE = 1;
-/** Average colour of a terrain texture (matches the main view); textures generate on first use. */
-const terrainRGB = (i: number): RGB => averageRGB(i);
+/** Terrain texture colour for the map; approximate until the texture has been generated. */
+const terrainRGB = (i: number): RGB => approxRGB(i);
 
 /** Terrain index of a world tile. */
 export type TerrainSampler = (tx: number, ty: number) => number;

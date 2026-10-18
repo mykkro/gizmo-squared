@@ -133,8 +133,11 @@ export class WorldGenerator {
       const b = BUILDING_BY_NAME[name];
       const h = b.blueprint.length;
       const w = b.blueprint[0].length;
-      const ox = Math.floor(hash2(this.seed, chunk.cx, chunk.cy, salt + 2) * (CHUNK_SIZE - w + 1));
-      const oy = Math.floor(hash2(this.seed, chunk.cx, chunk.cy, salt + 3) * (CHUNK_SIZE - h + 1));
+      // Keep a one-tile margin so roof overhang and drop shadow stay inside this chunk.
+      const ox =
+        1 + Math.floor(hash2(this.seed, chunk.cx, chunk.cy, salt + 2) * (CHUNK_SIZE - w - 1));
+      const oy =
+        1 + Math.floor(hash2(this.seed, chunk.cx, chunk.cy, salt + 3) * (CHUNK_SIZE - h - 1));
       if (this.canPlace(chunk, b, ox, oy, stamped)) this.stamp(chunk, b, ox, oy, stamped);
     }
   }

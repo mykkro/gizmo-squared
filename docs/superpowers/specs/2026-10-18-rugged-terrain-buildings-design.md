@@ -39,7 +39,7 @@ Status: Approved in conversation; written for the record.
 3. **Collision.** A house's whole bounding-box footprint is solid, with no block and no items. Open structures keep their blueprint behaviour; their `.` tiles get stone paving.
 4. **Rendering** (top-down, slightly angled), painted into the chunk bake after terrain and objects:
    - **Drop shadow** to the bottom-right, clipped to the chunk.
-   - **Front wall:** the bottom band, 0.8 tile high, in the wall material. A door sits in the centre, windows on either side every two tiles, and the wall darkens under the eaves.
+   - **Front wall:** the bottom band, 0.8 tile high, in the wall material. A door sits in the centre, with a window in every other tile of the front, and the wall darkens under the eaves. Buildings keep a one-tile margin from the chunk edges so overhang and shadow are never cut off.
    - **Roof:** covers the rest of the footprint as a gable. The ridge runs horizontally through the middle; the upper slope is lit (×1.1), the lower slope shaded (×0.85). It has a ridge cap, a dark eaves edge and darkened side edges.
    - **Chimney** (when set): a brick stack with a dark opening.
 5. **Materials.** 64 × 64 seamless procedural textures for clay, slate, thatch, shingle, plaster, brick, planks, stone and paving. Building blocks in open structures, such as pillars, use stone or brick masonry tinted by the block colour.

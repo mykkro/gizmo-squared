@@ -131,7 +131,7 @@ describe('WorldGenerator', () => {
 });
 
 describe('placed buildings', () => {
-  it('are recorded fully inside the chunk, with solid house footprints', () => {
+  it('are recorded inside the chunk with a one-tile margin, with solid house footprints', () => {
     const g = new WorldGenerator(SEED);
     let houses = 0;
     for (let cy = -6; cy < 6; cy++) {
@@ -141,8 +141,11 @@ describe('placed buildings', () => {
           const def = BUILDINGS[b.index];
           const w = def.blueprint[0].length;
           const h = def.blueprint.length;
-          expect(b.ox + w).toBeLessThanOrEqual(CHUNK_SIZE);
-          expect(b.oy + h).toBeLessThanOrEqual(CHUNK_SIZE);
+          // One-tile margin, so roof overhang and drop shadow stay inside this chunk.
+          expect(b.ox).toBeGreaterThanOrEqual(1);
+          expect(b.oy).toBeGreaterThanOrEqual(1);
+          expect(b.ox + w).toBeLessThanOrEqual(CHUNK_SIZE - 1);
+          expect(b.oy + h).toBeLessThanOrEqual(CHUNK_SIZE - 1);
           if (def.kind !== 'house') continue;
           houses++;
           for (let y = 0; y < h; y++) {

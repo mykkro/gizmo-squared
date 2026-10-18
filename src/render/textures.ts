@@ -378,6 +378,17 @@ export function averageRGB(index: number): RGB {
   return averages[index];
 }
 
+/**
+ * Average colour if the texture already exists, otherwise its palette's middle colour.
+ * Never generates a texture, so callers like the minimap cannot stall a frame.
+ */
+export function approxRGB(index: number): RGB {
+  if (cache[index]) return averageRGB(index);
+  const stops = RECIPES[TERRAINS[index].key].palette.map(parseHex);
+  const mid = stops[Math.floor((stops.length - 1) / 2)];
+  return [Math.round(mid[0]), Math.round(mid[1]), Math.round(mid[2])];
+}
+
 /** How many terrain textures have been generated so far (debug / startup checks). */
 export function texturesGenerated(): number {
   return cache.filter(Boolean).length;

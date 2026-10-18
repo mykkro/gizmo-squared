@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TERRAIN_INDEX } from '../../src/data/terrains';
-import { averageRGB } from '../../src/render/textures';
+import { approxRGB } from '../../src/render/textures';
 import {
   BLOCK_PX,
   FOG_RGB,
@@ -43,8 +43,8 @@ describe('MinimapModel', () => {
     const out = new Uint8ClampedArray(MAP_PX * MAP_PX * 4);
     composeAll(m, 0, 0, out);
     const c = MAP_PX / 2;
-    expect(pixel(out, c + 1, c)).toEqual(averageRGB(GRASS));
-    expect(pixel(out, c - 2, c)).toEqual(averageRGB(WATER));
+    expect(pixel(out, c + 1, c)).toEqual(approxRGB(GRASS));
+    expect(pixel(out, c - 2, c)).toEqual(approxRGB(WATER));
     expect(pixel(out, c + 40, c)).toEqual(FOG_RGB);
   });
 
@@ -55,7 +55,7 @@ describe('MinimapModel', () => {
     const out = new Uint8ClampedArray(MAP_PX * MAP_PX * 4);
     m.compose(0, 0, out);
     const c = MAP_PX / 2;
-    expect(pixel(out, c + 1, c)).toEqual(averageRGB(GRASS));
+    expect(pixel(out, c + 1, c)).toEqual(approxRGB(GRASS));
   });
 
   it('builds at most one block per compose call', () => {
