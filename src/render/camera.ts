@@ -1,17 +1,30 @@
-import { CAMERA_STIFFNESS, MIN_ZOOM, TARGET_TILES_SHORT_SIDE, TILE_PX } from '../config';
+import { CAMERA_STIFFNESS, MAX_ZOOM, MIN_ZOOM, TARGET_TILES_SHORT_SIDE, TILE_PX } from '../config';
 
-/** Never zoom in so far that fewer than this many tiles fit on the short side. */
-const MIN_TILES_SHORT_SIDE = 10;
+/** Continuous zoom (device px per world px) showing TARGET_TILES_SHORT_SIDE tiles. */
+export function computeZoom(deviceShortSide: number): number {
+  const z = deviceShortSide / (TILE_PX * TARGET_TILES_SHORT_SIDE);
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+}
+
+/** Unrounded device position of world coordinate 0 on a screen axis. */
+export function originOf(cameraWorld: number, zoom: number, screenSize: number): number {
+  return screenSize / 2 - cameraWorld * zoom;
+}
 
 /**
- * Integer zoom closest to showing TARGET_TILES_SHORT_SIDE tiles. With 32 px tiles one zoom
- * step changes the view a lot, so rounding down (as before) left small windows far too
- * zoomed out.
+ * Device rectangle [start, size] of chunk `index` along one axis. Start and end are rounded
+ * independently, so neighbouring chunks share an edge exactly: no gaps or overlaps at
+ * fractional zoom.
  */
-export function computeZoom(deviceShortSide: number): number {
-  const nearest = Math.round(deviceShortSide / (TILE_PX * TARGET_TILES_SHORT_SIDE));
-  const maxZoom = Math.floor(deviceShortSide / (TILE_PX * MIN_TILES_SHORT_SIDE));
-  return Math.max(MIN_ZOOM, Math.min(nearest, maxZoom));
+export function chunkRect(
+  index: number,
+  chunkPx: number,
+  zoom: number,
+  origin: number,
+): [number, number] {
+  const start = Math.round(origin + index * chunkPx * zoom);
+  const end = Math.round(origin + (index + 1) * chunkPx * zoom);
+  return [start, end - start];
 }
 
 export function interpolate(prev: number, cur: number, alpha: number): number {

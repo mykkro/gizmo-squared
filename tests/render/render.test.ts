@@ -4,7 +4,7 @@ import { BLOCK_ID } from '../../src/data/blocks';
 import { ITEM_KEYS } from '../../src/data/items';
 import { TERRAIN_INDEX } from '../../src/data/terrains';
 import { BakeCache } from '../../src/render/BakeCache';
-import { Camera, computeZoom } from '../../src/render/camera';
+import { Camera, chunkRect, computeZoom } from '../../src/render/camera';
 import { fillChunkPixels, type CanvasLike } from '../../src/render/chunkBaker';
 import { parseHex, shade } from '../../src/render/color';
 import { texel } from '../../src/render/textures';
@@ -24,17 +24,21 @@ describe('color', () => {
 });
 
 describe('camera', () => {
-  it('chooses the integer zoom closest to ~14 tiles on the short side', () => {
+  it('zoom is continuous: about 14 tiles on the short side', () => {
     expect(TILE_PX).toBe(32);
-    expect(computeZoom(800)).toBe(2);
-    expect(computeZoom(1080)).toBe(2);
-    expect(computeZoom(1170)).toBe(3);
-    expect(computeZoom(2160)).toBe(5);
-    expect(computeZoom(300)).toBe(1);
-    for (let side = 640; side <= 2400; side += 40) {
-      const tiles = side / (TILE_PX * computeZoom(side));
-      expect(tiles, `side ${side}`).toBeGreaterThanOrEqual(10);
-      expect(tiles, `side ${side}`).toBeLessThan(21);
+    expect(computeZoom(1120)).toBeCloseTo(2.5);
+    expect(computeZoom(100)).toBe(0.5);
+    for (const s of [700, 1080, 1500]) expect(s / (TILE_PX * computeZoom(s))).toBeCloseTo(14);
+  });
+
+  it('chunk rectangles tile without gaps or overlap at fractional zoom', () => {
+    for (const z of [1.37, 2.5, 3.14159]) {
+      for (let i = -5; i < 5; i++) {
+        const [a, sa] = chunkRect(i, 512, z, 640.3);
+        const [b] = chunkRect(i + 1, 512, z, 640.3);
+        expect(a + sa).toBe(b);
+        expect(Number.isInteger(a)).toBe(true);
+      }
     }
   });
 

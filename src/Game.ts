@@ -115,6 +115,7 @@ export class Game {
       player: this.player,
       camera: this.camera,
       flyers: this.flyers,
+      explored: this.explored,
       time: this.time,
       debugTint: this.debugTint,
       alpha,

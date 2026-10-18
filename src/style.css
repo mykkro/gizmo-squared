@@ -31,7 +31,6 @@ body {
   width: 100vw;
   height: 100dvh;
   touch-action: none;
-  image-rendering: pixelated;
 }
 
 .panel {
@@ -110,7 +109,6 @@ body {
   width: 160px;
   height: 160px;
   border-radius: 6px;
-  image-rendering: pixelated;
 }
 
 @media (max-width: 480px) {

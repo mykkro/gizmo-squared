@@ -20,7 +20,8 @@ export const BAKES_PER_FRAME = 1;
 export const PREFETCH_GENERATIONS_PER_FRAME = 1;
 
 export const TARGET_TILES_SHORT_SIDE = 14;
-export const MIN_ZOOM = 1;
+export const MIN_ZOOM = 0.5;
+export const MAX_ZOOM = 8;
 export const CAMERA_STIFFNESS = 8;
 
 export const SAVE_KEY = 'gizmo.save';

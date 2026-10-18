@@ -3,11 +3,13 @@ import { BIOMES } from '../data/biomes';
 import { ITEMS, NO_ITEM } from '../data/items';
 import { HITBOX_H, type Player } from '../entities/Player';
 import { isTired } from '../systems/energy';
+import { CELL_TILES, type ExploredMap } from '../world/explored';
 import type { World } from '../world/World';
 import { BakeCache } from './BakeCache';
-import { computeZoom, interpolate, screenOrigin, toScreen, type Camera } from './camera';
-import { bakeChunk, type CanvasLike } from './chunkBaker';
-import { GIZMO_FEET_ROW, GIZMO_FRAMES, GIZMO_TIRED, ITEM_SPRITES, spriteToCanvas } from './sprites';
+import { chunkRect, computeZoom, interpolate, originOf, toScreen, type Camera } from './camera';
+import { bakeChunk } from './chunkBaker';
+import { fogMask } from './fog';
+import { GIZMO_DEFS, GIZMO_FEET_ROW, ITEM_DEFS, rasterize, type SpriteDef } from './sprites';
 
 /** An item flying towards Gizmo after a magnet pickup. t goes 0 → 1. */
 export interface Flyer {
@@ -21,25 +23,27 @@ export interface RenderState {
   player: Player;
   camera: Camera;
   flyers: readonly Flyer[];
+  explored: ExploredMap;
   time: number;
   debugTint: boolean;
   /** Fraction of a tick elapsed since the last update (0..1), for interpolation. */
   alpha: number;
 }
 
-const BACKGROUND = '#1b1f24';
+const BACKGROUND = '#14181c';
 const UNBAKED = '#2a3b2f';
+const FOG_RGB = [20, 24, 28];
+const CELL_PX = CELL_TILES * TILE_PX;
 
 export class Renderer {
   zoom = 2;
+  /** Duration of the most recent chunk bake (ms), for the debug overlay. */
+  lastBakeMs = 0;
   private readonly ctx: CanvasRenderingContext2D;
   private world: World | null = null;
   private bakes: BakeCache | null = null;
-  private readonly gizmo = GIZMO_FRAMES.map(spriteToCanvas);
-  private readonly gizmoTired = spriteToCanvas(GIZMO_TIRED);
-  private readonly itemCanvases = new Map<number, CanvasLike>(
-    ITEMS.map((it) => [it.id, spriteToCanvas(ITEM_SPRITES[it.key])]),
-  );
+  private readonly hd = new Map<SpriteDef, { scale: number; canvas: HTMLCanvasElement }>();
+  private readonly fogCanvas = document.createElement('canvas');
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -50,7 +54,12 @@ export class Renderer {
   setWorld(world: World): void {
     this.world = world;
     const terrainAt = (tx: number, ty: number) => world.generator.sampleTile(tx, ty).terrain;
-    this.bakes = new BakeCache((chunk) => bakeChunk(chunk, terrainAt));
+    this.bakes = new BakeCache((chunk) => {
+      const t0 = performance.now();
+      const img = bakeChunk(chunk, terrainAt);
+      this.lastBakeMs = performance.now() - t0;
+      return img;
+    });
   }
 
   resize(cssW: number, cssH: number, dpr: number): void {
@@ -68,6 +77,23 @@ export class Renderer {
     };
   }
 
+  /** Sprite rasterised at the current zoom (cached until the zoom changes). */
+  private sprite(def: SpriteDef): HTMLCanvasElement {
+    const hit = this.hd.get(def);
+    if (hit && hit.scale === this.zoom) return hit.canvas;
+    const img = rasterize(def, this.zoom);
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('2D canvas unavailable');
+    const data = ctx.createImageData(img.width, img.height);
+    data.data.set(img.data);
+    ctx.putImageData(data, 0, 0);
+    this.hd.set(def, { scale: this.zoom, canvas });
+    return canvas;
+  }
+
   render(s: RenderState): void {
     const { ctx, canvas, zoom: z, world, bakes } = this;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -75,41 +101,33 @@ export class Renderer {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     if (!world || !bakes) return;
     bakes.beginFrame();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
-    // Interpolate between ticks, then snap the world origin to whole device pixels: smooth
-    // scrolling, and integer-zoom art drawn at integer world coordinates stays crisp.
     const camX = interpolate(s.camera.prevX, s.camera.x, s.alpha);
     const camY = interpolate(s.camera.prevY, s.camera.y, s.alpha);
-    ctx.setTransform(
-      z,
-      0,
-      0,
-      z,
-      screenOrigin(camX, z, canvas.width),
-      screenOrigin(camY, z, canvas.height),
-    );
-    ctx.imageSmoothingEnabled = false;
+    const ox = originOf(camX, z, canvas.width);
+    const oy = originOf(camY, z, canvas.height);
+    const left = -ox / z;
+    const top = -oy / z;
+    const right = (canvas.width - ox) / z;
+    const bottom = (canvas.height - oy) / z;
 
-    const halfW = canvas.width / 2 / z;
-    const halfH = canvas.height / 2 / z;
-    const left = camX - halfW;
-    const top = camY - halfH;
-    const right = camX + halfW;
-    const bottom = camY + halfH;
-
-    // Visible chunks.
+    // Terrain chunks, each in a whole-pixel rectangle so neighbours meet exactly.
     const cx0 = Math.floor(left / CHUNK_PX);
     const cx1 = Math.floor(right / CHUNK_PX);
     const cy0 = Math.floor(top / CHUNK_PX);
     const cy1 = Math.floor(bottom / CHUNK_PX);
     for (let cy = cy0; cy <= cy1; cy++) {
+      const [y, h] = chunkRect(cy, CHUNK_PX, z, oy);
       for (let cx = cx0; cx <= cx1; cx++) {
+        const [x, w] = chunkRect(cx, CHUNK_PX, z, ox);
         const img = bakes.get(world.getChunk(cx, cy));
         if (img) {
-          ctx.drawImage(img, cx * CHUNK_PX, cy * CHUNK_PX);
+          ctx.drawImage(img, x, y, w, h);
         } else {
           ctx.fillStyle = UNBAKED;
-          ctx.fillRect(cx * CHUNK_PX, cy * CHUNK_PX, CHUNK_PX, CHUNK_PX);
+          ctx.fillRect(x, y, w, h);
         }
       }
     }
@@ -127,24 +145,13 @@ export class Renderer {
       }
     }
 
-    // Items (bobbing 1 px, phase-shifted per tile).
     const tx0 = Math.floor(left / TILE_PX);
     const tx1 = Math.floor(right / TILE_PX);
     const ty0 = Math.floor(top / TILE_PX);
     const ty1 = Math.floor(bottom / TILE_PX);
-    for (let ty = ty0; ty <= ty1; ty++) {
-      for (let tx = tx0; tx <= tx1; tx++) {
-        const id = world.itemAt(tx, ty);
-        if (id === NO_ITEM) continue;
-        const img = this.itemCanvases.get(id);
-        if (!img) continue;
-        const bob = Math.round(Math.sin(s.time * 3 * Math.PI + tx * 7 + ty * 13));
-        const inset = (TILE_PX - img.width) / 2;
-        ctx.drawImage(img, tx * TILE_PX + inset, ty * TILE_PX + inset + bob);
-      }
-    }
 
     if (s.debugTint) {
+      ctx.setTransform(z, 0, 0, z, ox, oy);
       ctx.globalAlpha = 0.35;
       for (let ty = ty0; ty <= ty1; ty++) {
         for (let tx = tx0; tx <= tx1; tx++) {
@@ -153,34 +160,89 @@ export class Renderer {
         }
       }
       ctx.globalAlpha = 1;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
-    // Moving sprites are placed in device pixels relative to the camera (see toScreen), so
-    // they glide smoothly instead of hopping a whole texture pixel at a time.
+    // Sprites are pre-rasterised at the zoom, placed at whole device pixels.
+    const draw = (img: HTMLCanvasElement, worldX: number, worldY: number, flip = false) => {
+      const sx = toScreen(worldX, camX, z, canvas.width);
+      const sy = toScreen(worldY, camY, z, canvas.height);
+      if (flip) {
+        ctx.setTransform(-1, 0, 0, 1, sx + img.width, sy);
+        ctx.drawImage(img, 0, 0);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      } else {
+        ctx.drawImage(img, sx, sy);
+      }
+    };
+
+    // Items, gently bobbing (phase-shifted per tile).
+    for (let ty = ty0; ty <= ty1; ty++) {
+      for (let tx = tx0; tx <= tx1; tx++) {
+        const id = world.itemAt(tx, ty);
+        if (id === NO_ITEM) continue;
+        const def = ITEM_DEFS[ITEMS[id - 1].key];
+        const inset = (TILE_PX - def.w) / 2;
+        const bob = Math.sin(s.time * 3 * Math.PI + tx * 7 + ty * 13);
+        draw(this.sprite(def), tx * TILE_PX + inset, ty * TILE_PX + inset + bob);
+      }
+    }
+
+    // Magnet flyers.
     const p = s.player;
     const px = interpolate(p.prevX, p.x, s.alpha);
     const py = interpolate(p.prevY, p.y, s.alpha);
-    const sprite = (img: CanvasLike, worldX: number, worldY: number, flip = false) => {
-      const sx = toScreen(worldX, camX, z, canvas.width);
-      const sy = toScreen(worldY, camY, z, canvas.height);
-      ctx.setTransform(flip ? -z : z, 0, 0, z, flip ? sx + img.width * z : sx, sy);
-      ctx.drawImage(img, 0, 0);
-    };
-
-    // Magnet flyers.
     for (const f of s.flyers) {
-      const img = this.itemCanvases.get(f.itemId);
-      if (!img) continue;
+      const def = ITEM_DEFS[ITEMS[f.itemId - 1].key];
       const e = f.t * f.t;
       const x = f.fromX + (px - f.fromX) * e;
       const y = f.fromY + (py - HITBOX_H - f.fromY) * e;
-      sprite(img, x - img.width / 2, y - img.height / 2);
+      draw(this.sprite(def), x - def.w / 2, y - def.h / 2);
     }
 
+    this.drawFog(s.explored, ox, oy, left, top, right, bottom);
+
     // Gizmo: the feet row sits on the player's y.
-    const frame = isTired(p)
-      ? this.gizmoTired
-      : this.gizmo[p.moving ? Math.floor(p.animTime * 6) % this.gizmo.length : 0];
-    sprite(frame, px - frame.width / 2, py - (GIZMO_FEET_ROW + 1), p.facing === -1);
+    const def = isTired(p)
+      ? GIZMO_DEFS.tired
+      : GIZMO_DEFS.walk[p.moving ? Math.floor(p.animTime * 6) % GIZMO_DEFS.walk.length : 0];
+    draw(this.sprite(def), px - def.w / 2, py - (GIZMO_FEET_ROW + 1), p.facing === -1);
+  }
+
+  /** Soft fog of war: one mask texel per fog cell, stretched with smoothing. */
+  private drawFog(
+    explored: ExploredMap,
+    ox: number,
+    oy: number,
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+  ): void {
+    const c0x = Math.floor(left / CELL_PX) - 1;
+    const c0y = Math.floor(top / CELL_PX) - 1;
+    const w = Math.floor(right / CELL_PX) + 2 - c0x;
+    const h = Math.floor(bottom / CELL_PX) + 2 - c0y;
+    const mask = fogMask(explored, c0x, c0y, w, h);
+    if (!mask.some((a) => a > 0)) return;
+
+    const fc = this.fogCanvas;
+    if (fc.width !== w || fc.height !== h) {
+      fc.width = w;
+      fc.height = h;
+    }
+    const fctx = fc.getContext('2d');
+    if (!fctx) return;
+    const img = fctx.createImageData(w, h);
+    for (let i = 0; i < mask.length; i++) {
+      img.data[i * 4] = FOG_RGB[0];
+      img.data[i * 4 + 1] = FOG_RGB[1];
+      img.data[i * 4 + 2] = FOG_RGB[2];
+      img.data[i * 4 + 3] = mask[i];
+    }
+    fctx.putImageData(img, 0, 0);
+    const [x, cw] = chunkRect(c0x, CELL_PX, this.zoom, ox);
+    const [y, ch] = chunkRect(c0y, CELL_PX, this.zoom, oy);
+    this.ctx.drawImage(fc, x, y, cw * w, ch * h);
   }
 }

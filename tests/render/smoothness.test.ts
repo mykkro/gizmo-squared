@@ -9,7 +9,7 @@ import { updateMovement } from '../../src/systems/movement';
 
 const env = { isSolid: () => false, terrainAt: () => TERRAINS[TERRAIN_INDEX.grass] };
 const SCREEN = 1280;
-const ZOOM = 4;
+const ZOOM = 2.5;
 
 /**
  * Runs the real loop → movement → camera → screen-pixel pipeline frame by frame and records
