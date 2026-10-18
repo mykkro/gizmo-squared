@@ -8,6 +8,7 @@ import { Keyboard } from './input/keyboard';
 import { TouchJoystick } from './input/touchJoystick';
 import { Minimap } from './render/minimap';
 import { Renderer } from './render/Renderer';
+import { warmTextures } from './render/textures';
 import { downloadSave, readSaveFile } from './save/fileio';
 import { getBrowserStore, loadSave, writeSave } from './save/storage';
 import { randomSeedText } from './seedWords';
@@ -146,3 +147,14 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 window.addEventListener('pagehide', save);
+
+// Prepare every terrain texture in idle time, so a new terrain never stalls a frame.
+const warmStep = (deadline?: IdleDeadline) => {
+  const budget = deadline ? Math.max(1, deadline.timeRemaining() - 1) : 6;
+  if (!warmTextures(budget)) scheduleWarm();
+};
+const scheduleWarm = () => {
+  if ('requestIdleCallback' in window) requestIdleCallback(warmStep, { timeout: 500 });
+  else setTimeout(() => warmStep(), 50);
+};
+scheduleWarm();

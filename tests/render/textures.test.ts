@@ -1,6 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import { TERRAINS } from '../../src/data/terrains';
-import { TEX_PX, averageRGB, getTexture, texel } from '../../src/render/textures';
+import {
+  TEX_PX,
+  averageRGB,
+  generateTexture,
+  getTexture,
+  texel,
+  texturesGenerated,
+  warmTextures,
+} from '../../src/render/textures';
+
+describe('texture warm-up', () => {
+  it('generates textures in small time slices, identical to direct generation', () => {
+    expect(texturesGenerated()).toBe(0);
+    expect(warmTextures(0)).toBe(false);
+    let calls = 1;
+    while (!warmTextures(5)) calls++;
+    expect(calls).toBeGreaterThan(3);
+    expect(texturesGenerated()).toBe(TERRAINS.length);
+    expect(getTexture(3)).toEqual(generateTexture(3));
+    expect(getTexture(9)).toEqual(generateTexture(9));
+  });
+});
 
 describe('terrain textures', () => {
   it('exist for every terrain with the right size and are cached', () => {
@@ -36,6 +57,30 @@ describe('terrain textures', () => {
       }
       expect(max - min, t.key).toBeGreaterThan(12);
       expect(wrap, t.key).toBeLessThan(inner * 2.5 + TEX_PX * 4);
+    });
+  });
+
+  it('are 256 px', () => {
+    expect(TEX_PX).toBe(256);
+  });
+
+  it('are rugged: mean neighbour luminance difference is noticeable', () => {
+    TERRAINS.forEach((t, i) => {
+      const tex = getTexture(i);
+      const lum = (x: number, y: number) => {
+        const o = (y * TEX_PX + x) * 3;
+        return tex[o] * 0.3 + tex[o + 1] * 0.59 + tex[o + 2] * 0.11;
+      };
+      let sum = 0;
+      let n = 0;
+      for (let y = 0; y < TEX_PX; y += 2) {
+        for (let x = 0; x < TEX_PX - 1; x += 2) {
+          sum += Math.abs(lum(x + 1, y) - lum(x, y));
+          n++;
+        }
+      }
+      // Water stays calmer than land.
+      expect(sum / n, t.key).toBeGreaterThan(t.key === 'water' ? 2.5 : 4);
     });
   });
 
