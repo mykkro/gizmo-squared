@@ -1,10 +1,10 @@
 # Gizmo's World
 
 A cozy exploration game: wander an endless, procedurally generated world with Gizmo, discover
-biomes and collect treasures. Terrain is textured and blended procedurally, and a fog of war
-lifts as you explore.
+biomes and collect treasures. Terrain is textured and blended procedurally, villages have
+roofed houses, and a fog of war lifts as you explore.
 
-![Gizmo on a beach between grassland and stone, with soft fog at the edges and the minimap in the corner](docs/screenshot.png)
+![Gizmo near a clay-roofed house between cracked stone, grass and forest floor, with the minimap in the corner](docs/screenshot.png)
 
 ## Controls
 
